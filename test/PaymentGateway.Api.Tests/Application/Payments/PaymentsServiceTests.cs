@@ -129,6 +129,44 @@ public sealed class PaymentsServiceTests
         Assert.Null(result);
     }
 
+    [Fact]
+    public async Task ProcessAsync_ReturnsRejected_WhenCommandIsInvalid()
+    {
+        var service = new PaymentsService(
+            new TrackingBankClient(),
+            new FakePaymentsRepository());
+
+        var result = await service.ProcessAsync(
+            AuthorizedCommand with { CardNumber = "invalid" },
+            CancellationToken.None);
+
+        Assert.Equal(PaymentStatus.Rejected, result.Status);
+        Assert.Null(result.Id);
+        Assert.Contains(result.Errors, error => error.Code == "InvalidCardNumber");
+    }
+
+    [Fact]
+    public async Task ProcessAsync_DoesNotCallBank_WhenCommandIsInvalid()
+    {
+        var bankClient = new TrackingBankClient();
+        var service = new PaymentsService(bankClient, new FakePaymentsRepository());
+
+        await service.ProcessAsync(AuthorizedCommand with { CardNumber = "invalid" }, CancellationToken.None);
+
+        Assert.False(bankClient.WasCalled);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_DoesNotStorePayment_WhenCommandIsInvalid()
+    {
+        var repository = new FakePaymentsRepository();
+        var service = new PaymentsService(new TrackingBankClient(), repository);
+
+        await service.ProcessAsync(AuthorizedCommand with { CardNumber = "invalid" }, CancellationToken.None);
+
+        Assert.Empty(repository.Payments);
+    }
+
     private sealed class LastDigitBankClient : IAcquiringBankClient
     {
         public Task<AcquiringBankPaymentResult> ProcessAsync(
@@ -141,9 +179,25 @@ public sealed class PaymentsServiceTests
         }
     }
 
+    private sealed class TrackingBankClient : IAcquiringBankClient
+    {
+        public bool WasCalled { get; private set; }
+
+        public Task<AcquiringBankPaymentResult> ProcessAsync(
+            AcquiringBankPaymentRequest request,
+            CancellationToken cancellationToken)
+        {
+            WasCalled = true;
+
+            return Task.FromResult(new AcquiringBankPaymentResult(true));
+        }
+    }
+
     private sealed class FakePaymentsRepository : IPaymentsRepository
     {
         private readonly Dictionary<Guid, Payment> _payments = new();
+
+        public IReadOnlyCollection<Payment> Payments => _payments.Values.ToArray();
 
         public Task AddAsync(Payment payment, CancellationToken cancellationToken)
         {

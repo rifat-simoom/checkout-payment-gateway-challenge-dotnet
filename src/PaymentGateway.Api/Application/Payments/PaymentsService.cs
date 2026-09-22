@@ -6,6 +6,7 @@ public sealed class PaymentsService : IPaymentsService
 {
     private readonly IAcquiringBankClient _acquiringBankClient;
     private readonly IPaymentsRepository _paymentsRepository;
+    private readonly PaymentRequestValidator _paymentRequestValidator;
 
     public PaymentsService(
         IAcquiringBankClient acquiringBankClient,
@@ -13,12 +14,19 @@ public sealed class PaymentsService : IPaymentsService
     {
         _acquiringBankClient = acquiringBankClient;
         _paymentsRepository = paymentsRepository;
+        _paymentRequestValidator = new PaymentRequestValidator();
     }
 
     public async Task<ProcessPaymentResult> ProcessAsync(
         ProcessPaymentCommand command,
         CancellationToken cancellationToken)
     {
+        var validationErrors = _paymentRequestValidator.Validate(command);
+        if (validationErrors.Count > 0)
+        {
+            return ProcessPaymentResult.Rejected(validationErrors);
+        }
+
         var bankResult = await _acquiringBankClient.ProcessAsync(
             new AcquiringBankPaymentRequest(
                 command.CardNumber,
