@@ -458,31 +458,37 @@ Recommended sequence:
    - Create the architecture folders.
    - Move existing files and update namespaces.
 
-2. `Define payment domain and application contracts`
+2. `Add GitHub CI workflow`
+   - Add `.github/workflows/ci.yml`.
+   - Run CI on `push` and `pull_request`.
+   - Restore, build, and test `PaymentGateway.sln`.
+   - Do not depend on Docker Compose or the bank simulator unless tests explicitly require it.
+
+3. `Define payment domain and application contracts`
    - Add `Payment`, `PaymentStatus`, `IPaymentsService`, `IPaymentsRepository`, `IAcquiringBankClient`, commands, and results.
 
-3. `Add payment service behavior tests`
+4. `Add payment service behavior tests`
    - Cover authorization, decline, storage, retrieval, and not found behavior using fakes.
 
-4. `Implement payment application service`
+5. `Implement payment application service`
    - Implement processing and retrieval orchestration.
 
-5. `Add payment validation tests`
+6. `Add payment validation tests`
    - Cover validation rules and prove invalid requests do not call the bank.
 
-6. `Reject invalid payment requests before bank processing`
+7. `Reject invalid payment requests before bank processing`
    - Implement validation and rejected results.
 
-7. `Add bank client and in-memory payment storage`
+8. `Add bank client and in-memory payment storage`
    - Implement infrastructure and dependency injection.
 
-8. `Expose payment processing and retrieval endpoints`
+9. `Expose payment processing and retrieval endpoints`
    - Implement `POST /payments` and `GET /payments/{id}` with safe response contracts.
 
-9. `Cover payment API endpoints`
+10. `Cover payment API endpoints`
    - Add endpoint tests for authorized, declined, rejected, found, not found, and bank failure mappings.
 
-10. `Document design and add safe payment logging`
+11. `Document design and add safe payment logging`
     - Add structured logs and README instructions for design, assumptions, local run, Docker run, and tests.
 
 ## Documentation
