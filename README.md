@@ -108,12 +108,14 @@ GitHub Actions runs restore, release build, and tests on pushes and pull request
 - Supported currencies are `GBP`, `USD`, and `EUR`.
 - Expiry validation accepts cards expiring in the current month.
 - Bank simulator failures are returned as `502 Bad Gateway`, and the pending payment can be retried with the same merchant/idempotency key.
+- If the bank authorizes or declines a payment but the gateway fails before storing the terminal state, the payment remains `Pending` and is not automatically retried against the bank to avoid a duplicate authorization.
 - Persistence is in memory for challenge simplicity.
 - The API avoids MediatR, CQRS, Kubernetes, and broader production infrastructure because they are unnecessary for this scope.
 
 ## Future Improvements
 
 - Replace in-memory persistence with durable storage.
+- Add reconciliation for payments left pending after a successful bank response but failed local persistence.
 - Add correlation IDs and request tracing.
 - Add authentication, authorization, and rate limiting.
 - Add contract tests against the bank simulator.
