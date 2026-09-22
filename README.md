@@ -9,7 +9,7 @@ This is a .NET payment gateway implementation for the Checkout.com technical cha
 The implementation keeps the solution deliberately small while separating responsibilities:
 
 - `Api` contains HTTP controllers and request/response contracts.
-- `Application` contains payment use cases and validation. Its `Interfaces` folder contains application ports, and its `Models` folder contains commands and results.
+- `Application` contains payment use cases and validation. Its `Interfaces` folder contains application ports, its `Models` folder contains commands and results, and its `Exceptions` folder contains application-specific exceptions.
 - `Domain` contains payment concepts used by the application.
 - `Infrastructure` contains the acquiring bank HTTP client and in-memory persistence.
 

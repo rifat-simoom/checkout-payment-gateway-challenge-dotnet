@@ -1,4 +1,4 @@
-namespace PaymentGateway.Api.Application.Payments;
+namespace PaymentGateway.Api.Application.Payments.Exceptions;
 
 public sealed class AcquiringBankUnavailableException : Exception
 {
