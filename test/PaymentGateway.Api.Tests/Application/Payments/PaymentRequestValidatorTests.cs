@@ -25,6 +25,7 @@ public sealed class PaymentRequestValidatorTests
         yield return new object[] { ValidCommand() with { Currency = "AUD" }, "InvalidCurrency" };
         yield return new object[] { ValidCommand() with { Amount = 0 }, "InvalidAmount" };
         yield return new object[] { ValidCommand() with { Amount = -1 }, "InvalidAmount" };
+        yield return new object[] { ValidCommand() with { Amount = 100_000_001 }, "InvalidAmount" };
         yield return new object[] { ValidCommand() with { Cvv = "" }, "InvalidCvv" };
         yield return new object[] { ValidCommand() with { Cvv = "12" }, "InvalidCvv" };
         yield return new object[] { ValidCommand() with { Cvv = "12345" }, "InvalidCvv" };
@@ -39,6 +40,7 @@ public sealed class PaymentRequestValidatorTests
         yield return new object[] { ValidCommand() with { Currency = "GBP" } };
         yield return new object[] { ValidCommand() with { Currency = "USD" } };
         yield return new object[] { ValidCommand() with { Currency = "EUR" } };
+        yield return new object[] { ValidCommand() with { Amount = 100_000_000 } };
         yield return new object[] { ValidCommand() with { Cvv = "123" } };
         yield return new object[] { ValidCommand() with { Cvv = "1234" } };
     }

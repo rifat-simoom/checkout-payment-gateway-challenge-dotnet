@@ -4,6 +4,8 @@ namespace PaymentGateway.Api.Application.Payments.Validators;
 
 public sealed class PaymentRequestValidator
 {
+    private const int MaximumAmount = 100_000_000;
+
     private static readonly HashSet<string> SupportedCurrencies = new(StringComparer.OrdinalIgnoreCase)
     {
         "GBP",
@@ -126,6 +128,13 @@ public sealed class PaymentRequestValidator
             errors.Add(new PaymentValidationError(
                 "InvalidAmount",
                 "Amount must be greater than zero."));
+        }
+
+        if (command.Amount > MaximumAmount)
+        {
+            errors.Add(new PaymentValidationError(
+                "InvalidAmount",
+                $"Amount must be less than or equal to {MaximumAmount} minor currency units."));
         }
     }
 

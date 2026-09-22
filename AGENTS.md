@@ -241,7 +241,7 @@ Validate:
 - Expiry year is required.
 - Expiry month/year combination is not expired. Treat cards as valid through the end of the expiry month, so the current month/year is valid until that month ends.
 - Currency is required, 3 characters, and one of the supported ISO currency codes: `GBP`, `USD`, or `EUR`.
-- Amount is required and a positive integer in minor currency units.
+- Amount is required and a positive integer up to `100000000` in minor currency units.
 - CVV is required, numeric, and 3-4 characters long.
 
 Rejected payments should not be stored because no payment was created.
@@ -412,7 +412,7 @@ Cover:
 - Currency is not 3 characters.
 - Unsupported currency.
 - Supported currencies: `GBP`, `USD`, and `EUR`.
-- Amount is zero or negative.
+- Amount is zero, negative, or greater than `100000000`.
 - CVV length boundaries: 2, 3, 4, and 5 characters.
 - CVV contains non-numeric characters.
 
