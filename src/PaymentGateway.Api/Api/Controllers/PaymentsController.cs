@@ -20,6 +20,10 @@ public class PaymentsController : Controller
     public async Task<ActionResult<PostPaymentResponse?>> GetPaymentAsync(Guid id)
     {
         var payment = _paymentsRepository.Get(id);
+        if (payment is null)
+        {
+            return new NotFoundResult();
+        }
 
         return new OkObjectResult(payment);
     }

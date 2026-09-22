@@ -1,5 +1,7 @@
 # Instructions for candidates
 
+[![CI](https://github.com/rifat-simoom/checkout-payment-gateway-challenge-dotnet/actions/workflows/ci.yml/badge.svg)](https://github.com/rifat-simoom/checkout-payment-gateway-challenge-dotnet/actions/workflows/ci.yml)
+
 This is the .NET version of the Payment Gateway challenge. If you haven't already read this [README.md](https://github.com/cko-recruitment/) on the details of this exercise, please do so now. 
 
 ## Template structure
