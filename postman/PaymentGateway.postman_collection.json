@@ -184,6 +184,99 @@
       ]
     },
     {
+      "name": "Concurrent Idempotency Replay",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/payments/00000000-0000-0000-0000-000000000000",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "payments",
+            "00000000-0000-0000-0000-000000000000"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const requestCount = 5;",
+              "const idempotencyKey = `invoice-concurrency-${Date.now()}`;",
+              "const body = JSON.stringify({",
+              "  cardNumber: '2222405343248877',",
+              "  expiryMonth: 12,",
+              "  expiryYear: 2030,",
+              "  currency: 'GBP',",
+              "  amount: 100,",
+              "  cvv: '123'",
+              "});",
+              "",
+              "const responses = [];",
+              "const errors = [];",
+              "",
+              "function complete(error, response) {",
+              "  if (error) {",
+              "    errors.push(error);",
+              "  } else {",
+              "    responses.push(response);",
+              "  }",
+              "",
+              "  if (responses.length + errors.length !== requestCount) {",
+              "    return;",
+              "  }",
+              "",
+              "  pm.test('concurrent idempotent requests all complete successfully', function () {",
+              "    pm.expect(errors).to.be.empty;",
+              "    pm.expect(responses).to.have.length(requestCount);",
+              "    responses.forEach(function (item) {",
+              "      pm.expect([200, 201]).to.include(item.code);",
+              "    });",
+              "  });",
+              "",
+              "  pm.test('only one concurrent request creates the payment', function () {",
+              "    const createdCount = responses.filter(function (item) { return item.code === 201; }).length;",
+              "    pm.expect(createdCount).to.eql(1);",
+              "  });",
+              "",
+              "  pm.test('all concurrent responses refer to the same payment', function () {",
+              "    const bodies = responses.map(function (item) { return item.json(); });",
+              "    const paymentIds = [...new Set(bodies.map(function (item) { return item.id; }))];",
+              "    pm.expect(paymentIds).to.have.length(1);",
+              "    bodies.forEach(function (item) {",
+              "      pm.expect(['Pending', 'Authorized']).to.include(item.status);",
+              "      pm.expect(item.lastFourCardDigits).to.eql('8877');",
+              "      pm.expect(item.cardNumber).to.be.undefined;",
+              "      pm.expect(item.cvv).to.be.undefined;",
+              "    });",
+              "  });",
+              "}",
+              "",
+              "for (let index = 0; index < requestCount; index++) {",
+              "  pm.sendRequest({",
+              "    url: `${pm.collectionVariables.get('baseUrl')}/payments`,",
+              "    method: 'POST',",
+              "    header: [",
+              "      { key: 'Content-Type', value: 'application/json' },",
+              "      { key: 'X-Merchant-Id', value: pm.collectionVariables.get('merchantId') },",
+              "      { key: 'Idempotency-Key', value: idempotencyKey }",
+              "    ],",
+              "    body: {",
+              "      mode: 'raw',",
+              "      raw: body",
+              "    }",
+              "  }, complete);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
       "name": "Get Payment",
       "request": {
         "method": "GET",

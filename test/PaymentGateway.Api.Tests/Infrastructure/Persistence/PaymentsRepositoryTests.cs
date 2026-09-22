@@ -122,6 +122,38 @@ public sealed class PaymentsRepositoryTests
     }
 
     [Fact]
+    public async Task StartAsync_ConcurrentlyCreatesOnlyOnePaymentForSameIdempotencyKey()
+    {
+        var repository = new PaymentsRepository();
+        var ready = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var readyCount = 0;
+        const int requestCount = 12;
+
+        var tasks = Enumerable.Range(0, requestCount)
+            .Select(index => Task.Run(async () =>
+            {
+                if (Interlocked.Increment(ref readyCount) == requestCount)
+                {
+                    ready.SetResult();
+                }
+
+                await start.Task;
+
+                return await repository.StartAsync(CreatePendingPayment(), CancellationToken.None);
+            }))
+            .ToArray();
+
+        await ready.Task;
+        start.SetResult();
+        var results = await Task.WhenAll(tasks);
+
+        var createdResult = Assert.Single(results, result => result.Status == PaymentStartStatus.Created);
+        Assert.Equal(requestCount - 1, results.Count(result => result.Status == PaymentStartStatus.Existing));
+        Assert.All(results, result => Assert.Same(createdResult.Payment, result.Payment));
+    }
+
+    [Fact]
     public async Task GetAsync_ReturnsNull_WhenPaymentDoesNotExist()
     {
         var repository = new PaymentsRepository();

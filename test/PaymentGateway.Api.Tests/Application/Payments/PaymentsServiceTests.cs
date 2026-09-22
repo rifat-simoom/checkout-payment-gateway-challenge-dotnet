@@ -246,6 +246,47 @@ public sealed class PaymentsServiceTests
         Assert.Equal(1, bankClient.CallCount);
     }
 
+    [Fact]
+    public async Task ProcessAsync_ConcurrentlyReplaysSameIdempotencyKeyAndCallsBankOnce()
+    {
+        var repository = new FakePaymentsRepository();
+        var bankClient = new ReleasableBankClient();
+        var service = CreateService(bankClient, repository);
+        var ready = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var readyCount = 0;
+        const int requestCount = 8;
+
+        var tasks = Enumerable.Range(0, requestCount)
+            .Select(_ => Task.Run(async () =>
+            {
+                if (Interlocked.Increment(ref readyCount) == requestCount)
+                {
+                    ready.SetResult();
+                }
+
+                await start.Task;
+
+                return await service.ProcessAsync(AuthorizedCommand, CancellationToken.None);
+            }))
+            .ToArray();
+
+        await ready.Task;
+        start.SetResult();
+        await bankClient.WaitUntilCalledAsync();
+
+        var pendingResults = await Task.WhenAll(tasks.Where(task => task.IsCompletedSuccessfully));
+        Assert.All(pendingResults, result => Assert.Equal(PaymentStatus.Pending, result.Status));
+
+        bankClient.Release();
+        var results = await Task.WhenAll(tasks);
+
+        Assert.Equal(1, bankClient.CallCount);
+        Assert.Single(results, result => result.IsNewPayment);
+        Assert.Single(results.Select(result => result.Id).Distinct());
+        Assert.All(results, result => Assert.Contains(result.Status, new[] { PaymentStatus.Pending, PaymentStatus.Authorized }));
+    }
+
     private sealed class LastDigitBankClient : IAcquiringBankClient
     {
         public Task<AcquiringBankPaymentResult> ProcessAsync(
@@ -278,6 +319,31 @@ public sealed class PaymentsServiceTests
 
             return Task.FromResult(new AcquiringBankPaymentResult(true));
         }
+    }
+
+    private sealed class ReleasableBankClient : IAcquiringBankClient
+    {
+        private readonly TaskCompletionSource _called = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int _callCount;
+
+        public int CallCount => _callCount;
+
+        public async Task<AcquiringBankPaymentResult> ProcessAsync(
+            AcquiringBankPaymentRequest request,
+            CancellationToken cancellationToken)
+        {
+            Interlocked.Increment(ref _callCount);
+            _called.SetResult();
+
+            await _release.Task.WaitAsync(cancellationToken);
+
+            return new AcquiringBankPaymentResult(true);
+        }
+
+        public Task WaitUntilCalledAsync() => _called.Task;
+
+        public void Release() => _release.SetResult();
     }
 
     private sealed class InspectingBankClient : IAcquiringBankClient
@@ -315,65 +381,90 @@ public sealed class PaymentsServiceTests
     {
         private readonly Dictionary<Guid, Payment> _payments = new();
         private readonly Dictionary<string, Guid> _idempotencyKeys = new();
+        private readonly object _syncRoot = new();
 
-        public IReadOnlyCollection<Payment> Payments => _payments.Values.ToArray();
+        public IReadOnlyCollection<Payment> Payments
+        {
+            get
+            {
+                lock (_syncRoot)
+                {
+                    return _payments.Values.ToArray();
+                }
+            }
+        }
 
         public Task<PaymentStartResult> StartAsync(Payment payment, CancellationToken cancellationToken)
         {
-            var storageKey = $"{payment.MerchantId}:{payment.IdempotencyKey}";
-            if (_idempotencyKeys.TryGetValue(storageKey, out var existingPaymentId))
+            lock (_syncRoot)
             {
-                var existingPayment = _payments[existingPaymentId];
+                var storageKey = $"{payment.MerchantId}:{payment.IdempotencyKey}";
+                if (_idempotencyKeys.TryGetValue(storageKey, out var existingPaymentId))
+                {
+                    var existingPayment = _payments[existingPaymentId];
 
-                return Task.FromResult(
-                    existingPayment.RequestFingerprint == payment.RequestFingerprint
-                        ? PaymentStartResult.Existing(existingPayment)
-                        : PaymentStartResult.Conflict(existingPayment));
+                    return Task.FromResult(
+                        existingPayment.RequestFingerprint == payment.RequestFingerprint
+                            ? PaymentStartResult.Existing(existingPayment)
+                            : PaymentStartResult.Conflict(existingPayment));
+                }
+
+                _payments[payment.Id] = payment;
+                _idempotencyKeys[storageKey] = payment.Id;
+
+                return Task.FromResult(PaymentStartResult.Created(payment));
             }
-
-            _payments[payment.Id] = payment;
-            _idempotencyKeys[storageKey] = payment.Id;
-
-            return Task.FromResult(PaymentStartResult.Created(payment));
         }
 
         public Task AddAsync(Payment payment, CancellationToken cancellationToken)
         {
-            _payments[payment.Id] = payment;
+            lock (_syncRoot)
+            {
+                _payments[payment.Id] = payment;
+            }
 
             return Task.CompletedTask;
         }
 
         public Task UpdateAsync(Payment payment, CancellationToken cancellationToken)
         {
-            _payments[payment.Id] = payment;
+            lock (_syncRoot)
+            {
+                _payments[payment.Id] = payment;
+            }
 
             return Task.CompletedTask;
         }
 
         public Task<Payment> CompleteAsync(Guid paymentId, bool authorized, CancellationToken cancellationToken)
         {
-            var payment = _payments[paymentId];
-            if (payment.Status == PaymentStatus.Pending)
+            lock (_syncRoot)
             {
-                if (authorized)
+                var payment = _payments[paymentId];
+                if (payment.Status == PaymentStatus.Pending)
                 {
-                    payment.Authorize();
+                    if (authorized)
+                    {
+                        payment.Authorize();
+                    }
+                    else
+                    {
+                        payment.Decline();
+                    }
                 }
-                else
-                {
-                    payment.Decline();
-                }
-            }
 
-            return Task.FromResult(payment);
+                return Task.FromResult(payment);
+            }
         }
 
         public Task<Payment?> GetAsync(Guid paymentId, CancellationToken cancellationToken)
         {
-            _payments.TryGetValue(paymentId, out var payment);
+            lock (_syncRoot)
+            {
+                _payments.TryGetValue(paymentId, out var payment);
 
-            return Task.FromResult(payment);
+                return Task.FromResult(payment);
+            }
         }
     }
 }
