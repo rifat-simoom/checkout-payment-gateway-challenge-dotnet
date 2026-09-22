@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
-using PaymentGateway.Api.Application.Payments;
 using PaymentGateway.Api.Application.Payments.Interfaces;
+using PaymentGateway.Api.Application.Payments.Services;
 using PaymentGateway.Api.Infrastructure.Bank;
 using PaymentGateway.Api.Infrastructure.Persistence;
 

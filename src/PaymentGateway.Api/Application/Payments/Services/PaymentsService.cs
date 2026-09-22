@@ -1,9 +1,10 @@
 using Microsoft.Extensions.Logging;
 using PaymentGateway.Api.Application.Payments.Interfaces;
 using PaymentGateway.Api.Application.Payments.Models;
+using PaymentGateway.Api.Application.Payments.Validators;
 using PaymentGateway.Api.Domain.Payments;
 
-namespace PaymentGateway.Api.Application.Payments;
+namespace PaymentGateway.Api.Application.Payments.Services;
 
 public sealed class PaymentsService : IPaymentsService
 {
