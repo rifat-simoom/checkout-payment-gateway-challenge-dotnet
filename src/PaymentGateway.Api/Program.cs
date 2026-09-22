@@ -21,7 +21,8 @@ builder.Services.Configure<BankSimulatorOptions>(
 builder.Services.AddSingleton<PaymentsRepository>();
 builder.Services.AddSingleton<IPaymentsRepository>(provider => provider.GetRequiredService<PaymentsRepository>());
 builder.Services.AddSingleton<IPaymentsService, PaymentsService>();
-builder.Services.AddHttpClient<IAcquiringBankClient, AcquiringBankClient>();
+builder.Services.AddHttpClient<IAcquiringBankClient, AcquiringBankClient>()
+    .ConfigureHttpClient(client => client.Timeout = TimeSpan.FromSeconds(5));
 
 var app = builder.Build();
 
