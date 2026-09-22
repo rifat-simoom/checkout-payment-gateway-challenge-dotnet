@@ -1,9 +1,9 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 
-using PaymentGateway.Api.Models.Responses;
-using PaymentGateway.Api.Services;
+using PaymentGateway.Api.Api.Contracts.Responses;
+using PaymentGateway.Api.Infrastructure.Persistence;
 
-namespace PaymentGateway.Api.Controllers;
+namespace PaymentGateway.Api.Api.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]

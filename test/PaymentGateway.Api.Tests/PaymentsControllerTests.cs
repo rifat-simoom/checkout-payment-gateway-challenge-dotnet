@@ -3,9 +3,9 @@ using System.Net.Http.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 
-using PaymentGateway.Api.Controllers;
-using PaymentGateway.Api.Models.Responses;
-using PaymentGateway.Api.Services;
+using PaymentGateway.Api.Api.Controllers;
+using PaymentGateway.Api.Api.Contracts.Responses;
+using PaymentGateway.Api.Infrastructure.Persistence;
 
 namespace PaymentGateway.Api.Tests;
 
