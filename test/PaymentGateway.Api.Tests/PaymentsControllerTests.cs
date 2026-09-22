@@ -179,7 +179,7 @@ public class PaymentsControllerTests
             GetResult = new GetPaymentResult(paymentId, PaymentStatus.Authorized, "8877", 12, 2030, "GBP", 100)
         });
 
-        var response = await client.GetAsync($"/payments/{paymentId}");
+        var response = await GetPaymentAsync(client, paymentId);
         var responseBody = await response.Content.ReadAsStringAsync();
         var paymentResponse = await response.Content.ReadFromJsonAsync<GetPaymentResponse>(JsonOptions);
 
@@ -196,11 +196,36 @@ public class PaymentsControllerTests
     }
 
     [Fact]
-    public async Task GetPayment_ReturnsNotFound_WhenPaymentDoesNotExist()
+    public async Task GetPayment_PassesMerchantHeaderToApplication()
+    {
+        var paymentId = Guid.NewGuid();
+        var paymentsService = new FakePaymentsService
+        {
+            GetResult = new GetPaymentResult(paymentId, PaymentStatus.Authorized, "8877", 12, 2030, "GBP", 100)
+        };
+        var client = CreateClient(paymentsService);
+
+        await GetPaymentAsync(client, paymentId, "merchant-999");
+
+        Assert.Equal("merchant-999", paymentsService.LastGetMerchantId);
+    }
+
+    [Fact]
+    public async Task GetPayment_ReturnsBadRequest_WhenMerchantHeaderIsMissing()
     {
         var client = CreateClient(new FakePaymentsService());
 
         var response = await client.GetAsync($"/payments/{Guid.NewGuid()}");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetPayment_ReturnsNotFound_WhenPaymentDoesNotExist()
+    {
+        var client = CreateClient(new FakePaymentsService());
+
+        var response = await GetPaymentAsync(client, Guid.NewGuid());
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
@@ -245,6 +270,17 @@ public class PaymentsControllerTests
         return client.SendAsync(message);
     }
 
+    private static Task<HttpResponseMessage> GetPaymentAsync(
+        HttpClient client,
+        Guid paymentId,
+        string merchantId = "merchant-001")
+    {
+        var message = new HttpRequestMessage(HttpMethod.Get, $"/payments/{paymentId}");
+        message.Headers.Add("X-Merchant-Id", merchantId);
+
+        return client.SendAsync(message);
+    }
+
     private static void AssertDoesNotExposeSensitiveCardData(string responseBody)
     {
         Assert.DoesNotContain("\"cardNumber\"", responseBody, StringComparison.OrdinalIgnoreCase);
@@ -266,6 +302,8 @@ public class PaymentsControllerTests
 
         public ProcessPaymentCommand? LastCommand { get; private set; }
 
+        public string? LastGetMerchantId { get; private set; }
+
         public Task<ProcessPaymentResult> ProcessAsync(
             ProcessPaymentCommand command,
             CancellationToken cancellationToken)
@@ -285,8 +323,13 @@ public class PaymentsControllerTests
             return Task.FromResult(ProcessResult);
         }
 
-        public Task<GetPaymentResult?> GetAsync(Guid paymentId, CancellationToken cancellationToken)
+        public Task<GetPaymentResult?> GetAsync(
+            Guid paymentId,
+            string merchantId,
+            CancellationToken cancellationToken)
         {
+            LastGetMerchantId = merchantId;
+
             return Task.FromResult(GetResult);
         }
     }

@@ -72,7 +72,13 @@ public class PaymentsController : Controller
         Guid id,
         CancellationToken cancellationToken)
     {
-        var payment = await _paymentsService.GetAsync(id, cancellationToken);
+        var merchantId = Request.Headers["X-Merchant-Id"].ToString();
+        if (string.IsNullOrWhiteSpace(merchantId))
+        {
+            return new BadRequestResult();
+        }
+
+        var payment = await _paymentsService.GetAsync(id, merchantId, cancellationToken);
         if (payment is null)
         {
             return new NotFoundResult();

@@ -24,9 +24,9 @@ POST /payments
 GET /payments/{id}
 ```
 
-`POST /payments` requires `X-Merchant-Id` and `Idempotency-Key` headers. It processes a payment and returns `201 Created` for the first bank-attempted payment with status `Authorized` or `Declined`. Idempotent replays for the same merchant/key and same payment details return `200 OK` with the existing payment and do not call the bank again. Reusing the same merchant/key for different payment details returns `409 Conflict`. Invalid gateway requests return `400 Bad Request` with status `Rejected`. Bank simulator failures leave the validated payment `Pending` and return `502 Bad Gateway`.
+`POST /payments` requires `X-Merchant-Id` and `Idempotency-Key` headers. It processes a payment and returns `201 Created` for the first bank-attempted payment with status `Authorized` or `Declined`. Idempotent replays for the same merchant/key and same payment details return `200 OK` with the existing payment and do not call the bank again while the original request is in flight or already completed. Reusing the same merchant/key for different payment details returns `409 Conflict`. Invalid gateway requests return `400 Bad Request` with status `Rejected`. Bank simulator failures leave the validated payment `Pending`, mark it retryable, and return `502 Bad Gateway`.
 
-`GET /payments/{id}` returns a stored payment or `404 Not Found`.
+`GET /payments/{id}` requires `X-Merchant-Id` and returns a stored payment for that merchant or `404 Not Found`.
 
 Responses return safe card details only: the full card number and CVV are not returned.
 
@@ -107,7 +107,7 @@ GitHub Actions runs restore, release build, and tests on pushes and pull request
 
 - Supported currencies are `GBP`, `USD`, and `EUR`.
 - Expiry validation accepts cards expiring in the current month.
-- Bank simulator failures are returned as `502 Bad Gateway`.
+- Bank simulator failures are returned as `502 Bad Gateway`, and the pending payment can be retried with the same merchant/idempotency key.
 - Persistence is in memory for challenge simplicity.
 - The API avoids MediatR, CQRS, Kubernetes, and broader production infrastructure because they are unnecessary for this scope.
 

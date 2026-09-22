@@ -187,7 +187,12 @@
       "name": "Concurrent Idempotency Replay",
       "request": {
         "method": "GET",
-        "header": [],
+        "header": [
+          {
+            "key": "X-Merchant-Id",
+            "value": "{{merchantId}}"
+          }
+        ],
         "url": {
           "raw": "{{baseUrl}}/payments/00000000-0000-0000-0000-000000000000",
           "host": [
@@ -280,7 +285,12 @@
       "name": "Get Payment",
       "request": {
         "method": "GET",
-        "header": [],
+        "header": [
+          {
+            "key": "X-Merchant-Id",
+            "value": "{{merchantId}}"
+          }
+        ],
         "url": {
           "raw": "{{baseUrl}}/payments/{{paymentId}}",
           "host": [

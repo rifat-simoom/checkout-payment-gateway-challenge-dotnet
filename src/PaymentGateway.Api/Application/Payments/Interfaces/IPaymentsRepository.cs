@@ -13,5 +13,7 @@ public interface IPaymentsRepository
 
     Task<Payment> CompleteAsync(Guid paymentId, bool authorized, CancellationToken cancellationToken);
 
+    Task MarkProcessingFailedAsync(Guid paymentId, CancellationToken cancellationToken);
+
     Task<Payment?> GetAsync(Guid paymentId, CancellationToken cancellationToken);
 }

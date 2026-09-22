@@ -86,7 +86,8 @@ Recommended status mapping:
 - `200 OK` for idempotent POST replays for the same merchant, idempotency key, and payment details.
 - `409 Conflict` when a merchant reuses an idempotency key for different payment details.
 - `400 Bad Request` for gateway validation failures with payment status `Rejected`.
-- `404 Not Found` when retrieving an unknown payment id.
+- `400 Bad Request` when retrieving a payment without `X-Merchant-Id`.
+- `404 Not Found` when retrieving an unknown payment id or a payment owned by another merchant.
 - `502 Bad Gateway` for bank simulator failures.
 - `200 OK` for successful payment retrieval.
 - `200 OK` for health.
@@ -99,6 +100,8 @@ Prefer simple JSON contracts with camelCase external property names:
 X-Merchant-Id: merchant-001
 Idempotency-Key: invoice-001
 ```
+
+`GET /payments/{id}` requires `X-Merchant-Id` and must only return payments owned by that merchant.
 
 ```json
 {
@@ -267,7 +270,7 @@ Map bank responses as follows:
 
 - `authorized: true` -> `Authorized`
 - `authorized: false` -> `Declined`
-- simulator unavailable or unexpected bank failure -> explicit application failure result, payment remains `Pending`, and API response `502 Bad Gateway`
+- simulator unavailable or unexpected bank failure -> explicit application failure result, payment remains `Pending`, processing is marked failed so the same merchant/idempotency key can retry, and API response `502 Bad Gateway`
 
 ## Observability
 
@@ -387,7 +390,7 @@ Cover:
 - Unknown payment returns not found or `null`.
 - Rejected validation result does not call the bank.
 - Rejected validation result is not stored.
-- Bank unavailable produces an explicit application failure result and leaves the validated payment `Pending`.
+- Bank unavailable produces an explicit application failure result, leaves the validated payment `Pending`, and allows a later retry with the same merchant/idempotency key.
 
 These tests should be fast and should not use HTTP.
 
@@ -424,6 +427,7 @@ Cover:
 - `POST /payments` invalid request returns `400 Bad Request`, `Rejected`, and validation errors.
 - `GET /payments/{id}` existing payment returns `200 OK`.
 - `GET /payments/{id}` unknown payment returns `404 Not Found`.
+- `GET /payments/{id}` for another merchant returns `404 Not Found`.
 - Bank unavailable returns `502 Bad Gateway`.
 - Response bodies never include `cardNumber` or `cvv`.
 

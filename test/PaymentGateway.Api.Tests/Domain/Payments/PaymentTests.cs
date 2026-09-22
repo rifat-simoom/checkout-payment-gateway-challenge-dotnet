@@ -22,6 +22,7 @@ public sealed class PaymentTests
 
         Assert.Equal(paymentId, payment.Id);
         Assert.Equal(PaymentStatus.Pending, payment.Status);
+        Assert.True(payment.IsProcessing);
         Assert.Equal("merchant-001", payment.MerchantId);
         Assert.Equal("invoice-001", payment.IdempotencyKey);
         Assert.Equal("fingerprint-001", payment.RequestFingerprint);
@@ -40,6 +41,7 @@ public sealed class PaymentTests
         payment.Authorize();
 
         Assert.Equal(PaymentStatus.Authorized, payment.Status);
+        Assert.False(payment.IsProcessing);
     }
 
     [Fact]
@@ -50,6 +52,29 @@ public sealed class PaymentTests
         payment.Decline();
 
         Assert.Equal(PaymentStatus.Declined, payment.Status);
+        Assert.False(payment.IsProcessing);
+    }
+
+    [Fact]
+    public void MarkProcessingFailed_MakesPendingPaymentRetryable()
+    {
+        var payment = CreatePendingPayment();
+
+        payment.MarkProcessingFailed();
+
+        Assert.Equal(PaymentStatus.Pending, payment.Status);
+        Assert.False(payment.IsProcessing);
+    }
+
+    [Fact]
+    public void MarkProcessing_MarksPendingPaymentAsProcessing()
+    {
+        var payment = CreatePendingPayment();
+        payment.MarkProcessingFailed();
+
+        payment.MarkProcessing();
+
+        Assert.True(payment.IsProcessing);
     }
 
     [Fact]

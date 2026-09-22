@@ -72,6 +72,19 @@ public sealed class PaymentsRepositoryTests
     }
 
     [Fact]
+    public async Task MarkProcessingFailedAsync_MakesPendingPaymentRetryable()
+    {
+        var repository = new PaymentsRepository();
+        var payment = CreatePendingPayment();
+        await repository.StartAsync(payment, CancellationToken.None);
+
+        await repository.MarkProcessingFailedAsync(payment.Id, CancellationToken.None);
+
+        Assert.Equal(PaymentStatus.Pending, payment.Status);
+        Assert.False(payment.IsProcessing);
+    }
+
+    [Fact]
     public async Task StartAsync_StoresNewPayment()
     {
         var repository = new PaymentsRepository();
@@ -95,6 +108,22 @@ public sealed class PaymentsRepositoryTests
 
         Assert.Equal(PaymentStartStatus.Existing, result.Status);
         Assert.Same(payment, result.Payment);
+    }
+
+    [Fact]
+    public async Task StartAsync_ReturnsRetry_WhenExistingPendingPaymentIsNotProcessing()
+    {
+        var repository = new PaymentsRepository();
+        var payment = CreatePendingPayment();
+        await repository.StartAsync(payment, CancellationToken.None);
+        await repository.MarkProcessingFailedAsync(payment.Id, CancellationToken.None);
+
+        var retryPayment = CreatePendingPayment();
+        var result = await repository.StartAsync(retryPayment, CancellationToken.None);
+
+        Assert.Equal(PaymentStartStatus.Retry, result.Status);
+        Assert.Same(payment, result.Payment);
+        Assert.True(result.Payment.IsProcessing);
     }
 
     [Fact]

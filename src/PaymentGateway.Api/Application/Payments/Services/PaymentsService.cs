@@ -84,25 +84,38 @@ public sealed class PaymentsService : IPaymentsService
             };
         }
 
+        payment = startResult.Payment;
+        var isNewPayment = startResult.Status == PaymentStartStatus.Created;
+
         _logger.LogInformation(
             "Payment {PaymentId} created with status {Status}.",
             payment.Id,
             payment.Status);
 
-        var bankResult = await _acquiringBankClient.ProcessAsync(
-            new AcquiringBankPaymentRequest(
-                command.CardNumber,
-                command.ExpiryMonth,
-                command.ExpiryYear,
-                command.Currency,
-                command.Amount,
-                command.Cvv),
-            cancellationToken);
+        Payment completedPayment;
+        try
+        {
+            var bankResult = await _acquiringBankClient.ProcessAsync(
+                new AcquiringBankPaymentRequest(
+                    command.CardNumber,
+                    command.ExpiryMonth,
+                    command.ExpiryYear,
+                    command.Currency,
+                    command.Amount,
+                    command.Cvv),
+                cancellationToken);
 
-        var completedPayment = await _paymentsRepository.CompleteAsync(
-            payment.Id,
-            bankResult.Authorized,
-            cancellationToken);
+            completedPayment = await _paymentsRepository.CompleteAsync(
+                payment.Id,
+                bankResult.Authorized,
+                cancellationToken);
+        }
+        catch
+        {
+            await _paymentsRepository.MarkProcessingFailedAsync(payment.Id, CancellationToken.None);
+
+            throw;
+        }
 
         _logger.LogInformation(
             "Payment {PaymentId} processed with status {Status}.",
@@ -110,15 +123,18 @@ public sealed class PaymentsService : IPaymentsService
             completedPayment.Status);
 
         return completedPayment.Status == PaymentStatus.Authorized
-            ? ProcessPaymentResult.Authorized(completedPayment)
-            : ProcessPaymentResult.Declined(completedPayment);
+            ? ProcessPaymentResult.Authorized(completedPayment, isNewPayment)
+            : ProcessPaymentResult.Declined(completedPayment, isNewPayment);
     }
 
-    public async Task<GetPaymentResult?> GetAsync(Guid paymentId, CancellationToken cancellationToken)
+    public async Task<GetPaymentResult?> GetAsync(
+        Guid paymentId,
+        string merchantId,
+        CancellationToken cancellationToken)
     {
         var payment = await _paymentsRepository.GetAsync(paymentId, cancellationToken);
 
-        if (payment is null)
+        if (payment is null || Normalize(payment.MerchantId) != Normalize(merchantId))
         {
             _logger.LogInformation("Payment {PaymentId} not found.", paymentId);
 
@@ -141,8 +157,7 @@ public sealed class PaymentsService : IPaymentsService
             command.ExpiryMonth.ToString("00"),
             command.ExpiryYear.ToString("0000"),
             Normalize(command.Currency),
-            command.Amount.ToString(),
-            Normalize(command.Cvv));
+            command.Amount.ToString());
 
         var fingerprintBytes = SHA256.HashData(Encoding.UTF8.GetBytes(normalizedPaymentIntent));
 

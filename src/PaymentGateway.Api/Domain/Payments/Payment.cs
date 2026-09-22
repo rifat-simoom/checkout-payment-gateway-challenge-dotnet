@@ -10,7 +10,7 @@ public sealed class Payment
         int expiryYear,
         string currency,
         int amount)
-        : this(id, status, string.Empty, string.Empty, string.Empty, lastFourCardDigits, expiryMonth, expiryYear, currency, amount)
+        : this(id, status, string.Empty, string.Empty, string.Empty, false, lastFourCardDigits, expiryMonth, expiryYear, currency, amount)
     {
     }
 
@@ -20,6 +20,7 @@ public sealed class Payment
         string merchantId,
         string idempotencyKey,
         string requestFingerprint,
+        bool isProcessing,
         string lastFourCardDigits,
         int expiryMonth,
         int expiryYear,
@@ -31,6 +32,7 @@ public sealed class Payment
         MerchantId = merchantId;
         IdempotencyKey = idempotencyKey;
         RequestFingerprint = requestFingerprint;
+        IsProcessing = isProcessing;
         LastFourCardDigits = lastFourCardDigits;
         ExpiryMonth = expiryMonth;
         ExpiryYear = expiryYear;
@@ -47,6 +49,8 @@ public sealed class Payment
     public string IdempotencyKey { get; }
 
     public string RequestFingerprint { get; }
+
+    public bool IsProcessing { get; private set; }
 
     public string LastFourCardDigits { get; }
 
@@ -74,6 +78,7 @@ public sealed class Payment
             merchantId,
             idempotencyKey,
             requestFingerprint,
+            true,
             cardNumber[^4..],
             expiryMonth,
             expiryYear,
@@ -84,6 +89,24 @@ public sealed class Payment
 
     public void Decline() => Complete(PaymentStatus.Declined);
 
+    public void MarkProcessing()
+    {
+        if (Status != PaymentStatus.Pending)
+        {
+            throw new InvalidOperationException("Only pending payments can be marked as processing.");
+        }
+
+        IsProcessing = true;
+    }
+
+    public void MarkProcessingFailed()
+    {
+        if (Status == PaymentStatus.Pending)
+        {
+            IsProcessing = false;
+        }
+    }
+
     private void Complete(PaymentStatus status)
     {
         if (Status != PaymentStatus.Pending)
@@ -92,5 +115,6 @@ public sealed class Payment
         }
 
         Status = status;
+        IsProcessing = false;
     }
 }

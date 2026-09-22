@@ -7,6 +7,9 @@ public sealed record PaymentStartResult(PaymentStartStatus Status, Payment Payme
     public static PaymentStartResult Created(Payment payment) =>
         new(PaymentStartStatus.Created, payment);
 
+    public static PaymentStartResult Retry(Payment payment) =>
+        new(PaymentStartStatus.Retry, payment);
+
     public static PaymentStartResult Existing(Payment payment) =>
         new(PaymentStartStatus.Existing, payment);
 

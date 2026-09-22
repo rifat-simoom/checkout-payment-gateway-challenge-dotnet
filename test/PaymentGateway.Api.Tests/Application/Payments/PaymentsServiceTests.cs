@@ -118,12 +118,12 @@ public sealed class PaymentsServiceTests
     [Fact]
     public async Task GetAsync_ReturnsStoredPayment()
     {
-        var payment = new Payment(Guid.NewGuid(), PaymentStatus.Authorized, "8877", 12, 2030, "GBP", 100);
+        var payment = CreateCompletedPayment("merchant-001");
         var repository = new FakePaymentsRepository();
         await repository.AddAsync(payment, CancellationToken.None);
         var service = CreateService(new LastDigitBankClient(), repository);
 
-        var result = await service.GetAsync(payment.Id, CancellationToken.None);
+        var result = await service.GetAsync(payment.Id, "merchant-001", CancellationToken.None);
 
         if (result is null)
         {
@@ -144,7 +144,20 @@ public sealed class PaymentsServiceTests
     {
         var service = CreateService(new LastDigitBankClient(), new FakePaymentsRepository());
 
-        var result = await service.GetAsync(Guid.NewGuid(), CancellationToken.None);
+        var result = await service.GetAsync(Guid.NewGuid(), "merchant-001", CancellationToken.None);
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task GetAsync_ReturnsNull_WhenPaymentBelongsToDifferentMerchant()
+    {
+        var payment = CreateCompletedPayment("merchant-001");
+        var repository = new FakePaymentsRepository();
+        await repository.AddAsync(payment, CancellationToken.None);
+        var service = CreateService(new LastDigitBankClient(), repository);
+
+        var result = await service.GetAsync(payment.Id, "merchant-002", CancellationToken.None);
 
         Assert.Null(result);
     }
@@ -198,6 +211,40 @@ public sealed class PaymentsServiceTests
 
         var payment = Assert.Single(repository.Payments);
         Assert.Equal(PaymentStatus.Pending, payment.Status);
+        Assert.False(payment.IsProcessing);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_RetriesBank_WhenPreviousAttemptFailed()
+    {
+        var repository = new FakePaymentsRepository();
+        var bankClient = new FailsOnceBankClient();
+        var service = CreateService(bankClient, repository);
+
+        await Assert.ThrowsAsync<AcquiringBankUnavailableException>(
+            () => service.ProcessAsync(AuthorizedCommand, CancellationToken.None));
+
+        var result = await service.ProcessAsync(AuthorizedCommand, CancellationToken.None);
+
+        Assert.Equal(PaymentStatus.Authorized, result.Status);
+        Assert.False(result.IsNewPayment);
+        Assert.Equal(2, bankClient.CallCount);
+        Assert.Single(repository.Payments);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_DoesNotConflict_WhenOnlyCvvChangesForSameIdempotencyKey()
+    {
+        var repository = new FakePaymentsRepository();
+        var bankClient = new TrackingBankClient();
+        var service = CreateService(bankClient, repository);
+
+        var firstResult = await service.ProcessAsync(AuthorizedCommand, CancellationToken.None);
+        var secondResult = await service.ProcessAsync(AuthorizedCommand with { Cvv = "999" }, CancellationToken.None);
+
+        Assert.Equal(firstResult.Id, secondResult.Id);
+        Assert.False(secondResult.IsNewPayment);
+        Assert.Equal(1, bankClient.CallCount);
     }
 
     [Fact]
@@ -377,6 +424,24 @@ public sealed class PaymentsServiceTests
         }
     }
 
+    private sealed class FailsOnceBankClient : IAcquiringBankClient
+    {
+        public int CallCount { get; private set; }
+
+        public Task<AcquiringBankPaymentResult> ProcessAsync(
+            AcquiringBankPaymentRequest request,
+            CancellationToken cancellationToken)
+        {
+            CallCount++;
+            if (CallCount == 1)
+            {
+                throw new AcquiringBankUnavailableException("Bank unavailable.");
+            }
+
+            return Task.FromResult(new AcquiringBankPaymentResult(true));
+        }
+    }
+
     private sealed class FakePaymentsRepository : IPaymentsRepository
     {
         private readonly Dictionary<Guid, Payment> _payments = new();
@@ -402,11 +467,19 @@ public sealed class PaymentsServiceTests
                 if (_idempotencyKeys.TryGetValue(storageKey, out var existingPaymentId))
                 {
                     var existingPayment = _payments[existingPaymentId];
+                    if (existingPayment.RequestFingerprint != payment.RequestFingerprint)
+                    {
+                        return Task.FromResult(PaymentStartResult.Conflict(existingPayment));
+                    }
 
-                    return Task.FromResult(
-                        existingPayment.RequestFingerprint == payment.RequestFingerprint
-                            ? PaymentStartResult.Existing(existingPayment)
-                            : PaymentStartResult.Conflict(existingPayment));
+                    if (existingPayment.Status == PaymentStatus.Pending && !existingPayment.IsProcessing)
+                    {
+                        existingPayment.MarkProcessing();
+
+                        return Task.FromResult(PaymentStartResult.Retry(existingPayment));
+                    }
+
+                    return Task.FromResult(PaymentStartResult.Existing(existingPayment));
                 }
 
                 _payments[payment.Id] = payment;
@@ -466,5 +539,35 @@ public sealed class PaymentsServiceTests
                 return Task.FromResult(payment);
             }
         }
+
+        public Task MarkProcessingFailedAsync(Guid paymentId, CancellationToken cancellationToken)
+        {
+            lock (_syncRoot)
+            {
+                if (_payments.TryGetValue(paymentId, out var payment))
+                {
+                    payment.MarkProcessingFailed();
+                }
+
+                return Task.CompletedTask;
+            }
+        }
+    }
+
+    private static Payment CreateCompletedPayment(string merchantId)
+    {
+        var payment = Payment.CreatePending(
+            Guid.NewGuid(),
+            merchantId,
+            "invoice-001",
+            "fingerprint-001",
+            "2222405343248877",
+            12,
+            2030,
+            "GBP",
+            100);
+        payment.Authorize();
+
+        return payment;
     }
 }

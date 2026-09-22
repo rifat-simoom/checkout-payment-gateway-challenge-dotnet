@@ -20,6 +20,7 @@ public class PaymentsRepository : IPaymentsRepository
             string.Empty,
             string.Empty,
             string.Empty,
+            false,
             payment.LastFourCardDigits,
             payment.ExpiryMonth,
             payment.ExpiryYear,
@@ -52,10 +53,20 @@ public class PaymentsRepository : IPaymentsRepository
             if (_idempotencyKeys.TryGetValue(idempotencyStorageKey, out var existingPaymentId) &&
                 _payments.TryGetValue(existingPaymentId, out var existingPayment))
             {
+                if (existingPayment.RequestFingerprint != payment.RequestFingerprint)
+                {
+                    return Task.FromResult(PaymentStartResult.Conflict(existingPayment));
+                }
+
+                if (existingPayment.Status == PaymentStatus.Pending && !existingPayment.IsProcessing)
+                {
+                    existingPayment.MarkProcessing();
+
+                    return Task.FromResult(PaymentStartResult.Retry(existingPayment));
+                }
+
                 return Task.FromResult(
-                    existingPayment.RequestFingerprint == payment.RequestFingerprint
-                        ? PaymentStartResult.Existing(existingPayment)
-                        : PaymentStartResult.Conflict(existingPayment));
+                    PaymentStartResult.Existing(existingPayment));
             }
 
             _payments[payment.Id] = payment;
@@ -107,6 +118,19 @@ public class PaymentsRepository : IPaymentsRepository
             }
 
             return Task.FromResult(payment);
+        }
+    }
+
+    public Task MarkProcessingFailedAsync(Guid paymentId, CancellationToken cancellationToken)
+    {
+        lock (_syncRoot)
+        {
+            if (_payments.TryGetValue(paymentId, out var payment))
+            {
+                payment.MarkProcessingFailed();
+            }
+
+            return Task.CompletedTask;
         }
     }
 

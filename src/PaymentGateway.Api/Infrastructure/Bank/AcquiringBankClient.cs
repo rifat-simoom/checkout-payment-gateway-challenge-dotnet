@@ -80,6 +80,15 @@ public sealed class AcquiringBankClient : IAcquiringBankClient
 
             throw new AcquiringBankUnavailableException("Acquiring bank request failed.", exception);
         }
+        catch (TaskCanceledException exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            _logger.LogError(
+                exception,
+                "Acquiring bank request timed out after {ElapsedMilliseconds}ms.",
+                stopwatch.ElapsedMilliseconds);
+
+            throw new AcquiringBankUnavailableException("Acquiring bank request timed out.", exception);
+        }
     }
 
     private sealed record BankPaymentRequest(

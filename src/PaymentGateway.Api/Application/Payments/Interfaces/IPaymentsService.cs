@@ -6,5 +6,8 @@ public interface IPaymentsService
 {
     Task<ProcessPaymentResult> ProcessAsync(ProcessPaymentCommand command, CancellationToken cancellationToken);
 
-    Task<GetPaymentResult?> GetAsync(Guid paymentId, CancellationToken cancellationToken);
+    Task<GetPaymentResult?> GetAsync(
+        Guid paymentId,
+        string merchantId,
+        CancellationToken cancellationToken);
 }

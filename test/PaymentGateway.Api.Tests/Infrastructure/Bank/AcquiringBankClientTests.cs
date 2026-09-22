@@ -72,6 +72,15 @@ public sealed class AcquiringBankClientTests
             () => client.ProcessAsync(ValidRequest(), CancellationToken.None));
     }
 
+    [Fact]
+    public async Task ProcessAsync_ThrowsUnavailableException_WhenBankRequestTimesOut()
+    {
+        var client = CreateClient(new TimeoutHttpMessageHandler());
+
+        await Assert.ThrowsAsync<AcquiringBankUnavailableException>(
+            () => client.ProcessAsync(ValidRequest(), CancellationToken.None));
+    }
+
     private static AcquiringBankClient CreateClient(HttpMessageHandler messageHandler)
     {
         var httpClient = new HttpClient(messageHandler);
@@ -100,6 +109,16 @@ public sealed class AcquiringBankClientTests
             CancellationToken cancellationToken)
         {
             return Task.FromResult(_send(request));
+        }
+    }
+
+    private sealed class TimeoutHttpMessageHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            throw new TaskCanceledException("The request timed out.");
         }
     }
 }
