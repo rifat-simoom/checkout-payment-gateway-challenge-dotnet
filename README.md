@@ -79,7 +79,7 @@ To run the API without Docker, start the bank simulator with Docker Compose and 
 dotnet run --project src/PaymentGateway.Api
 ```
 
-The bank simulator URL is configured with `BankSimulator:BaseUrl` in `appsettings.json` and defaults to `http://localhost:8080` for local `dotnet run`. Docker Compose does not publish the bank simulator to the host; the containerized API uses `BankSimulator__BaseUrl=http://bank-simulator:8080` on the internal Compose network.
+The bank simulator URL is configured with `BankSimulator:BaseUrl` in `appsettings.json` and defaults to `http://localhost:8080` for local `dotnet run`. Docker Compose publishes the bank simulator on `http://localhost:8080` for local API runs, while the containerized API uses `BankSimulator__BaseUrl=http://bank-simulator:8080` on the internal Compose network.
 
 ## Postman
 
