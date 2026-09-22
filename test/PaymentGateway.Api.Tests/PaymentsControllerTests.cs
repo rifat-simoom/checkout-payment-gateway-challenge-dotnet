@@ -32,6 +32,7 @@ public class PaymentsControllerTests
         });
 
         var response = await client.PostAsJsonAsync("/payments", ValidRequest());
+        var responseBody = await response.Content.ReadAsStringAsync();
         var paymentResponse = await response.Content.ReadFromJsonAsync<PostPaymentResponse>(JsonOptions);
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
@@ -48,6 +49,7 @@ public class PaymentsControllerTests
         Assert.Equal(2030, paymentResponse.ExpiryYear);
         Assert.Equal("GBP", paymentResponse.Currency);
         Assert.Equal(100, paymentResponse.Amount);
+        AssertDoesNotExposeSensitiveCardData(responseBody);
     }
 
     [Fact]
@@ -60,6 +62,7 @@ public class PaymentsControllerTests
         });
 
         var response = await client.PostAsJsonAsync("/payments", ValidRequest());
+        var responseBody = await response.Content.ReadAsStringAsync();
         var paymentResponse = await response.Content.ReadFromJsonAsync<PostPaymentResponse>(JsonOptions);
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
@@ -70,6 +73,7 @@ public class PaymentsControllerTests
 
         Assert.Equal(PaymentStatus.Declined, paymentResponse.Status);
         Assert.Equal("8878", paymentResponse.LastFourCardDigits);
+        AssertDoesNotExposeSensitiveCardData(responseBody);
     }
 
     [Fact]
@@ -84,6 +88,7 @@ public class PaymentsControllerTests
         });
 
         var response = await client.PostAsJsonAsync("/payments", ValidRequest());
+        var responseBody = await response.Content.ReadAsStringAsync();
         var rejectedResponse = await response.Content.ReadFromJsonAsync<PostPaymentRejectedResponse>(JsonOptions);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -94,6 +99,7 @@ public class PaymentsControllerTests
 
         Assert.Equal(PaymentStatus.Rejected, rejectedResponse.Status);
         Assert.Contains(rejectedResponse.Errors, error => error.Code == "InvalidCardNumber");
+        AssertDoesNotExposeSensitiveCardData(responseBody);
     }
 
     [Fact]
@@ -119,6 +125,7 @@ public class PaymentsControllerTests
         });
 
         var response = await client.GetAsync($"/payments/{paymentId}");
+        var responseBody = await response.Content.ReadAsStringAsync();
         var paymentResponse = await response.Content.ReadFromJsonAsync<GetPaymentResponse>(JsonOptions);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -130,6 +137,7 @@ public class PaymentsControllerTests
         Assert.Equal(paymentId, paymentResponse.Id);
         Assert.Equal(PaymentStatus.Authorized, paymentResponse.Status);
         Assert.Equal("8877", paymentResponse.LastFourCardDigits);
+        AssertDoesNotExposeSensitiveCardData(responseBody);
     }
 
     [Fact]
@@ -165,6 +173,13 @@ public class PaymentsControllerTests
             Amount = 100,
             Cvv = "123"
         };
+
+    private static void AssertDoesNotExposeSensitiveCardData(string responseBody)
+    {
+        Assert.DoesNotContain("\"cardNumber\"", responseBody, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("\"cvv\"", responseBody, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("2222405343248877", responseBody, StringComparison.OrdinalIgnoreCase);
+    }
 
     private sealed class FakePaymentsService : IPaymentsService
     {
