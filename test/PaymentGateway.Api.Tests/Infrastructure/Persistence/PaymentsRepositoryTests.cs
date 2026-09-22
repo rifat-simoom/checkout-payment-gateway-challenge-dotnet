@@ -59,16 +59,15 @@ public sealed class PaymentsRepositoryTests
     }
 
     [Fact]
-    public async Task CompleteAsync_DoesNotChangeAlreadyCompletedPayment()
+    public async Task CompleteAsync_Throws_WhenPaymentIsAlreadyCompleted()
     {
         var repository = new PaymentsRepository();
         var payment = CreatePendingPayment();
         await repository.StartAsync(payment, CancellationToken.None);
         await repository.CompleteAsync(payment.Id, true, CancellationToken.None);
 
-        var completedPayment = await repository.CompleteAsync(payment.Id, false, CancellationToken.None);
-
-        Assert.Equal(PaymentStatus.Authorized, completedPayment.Status);
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => repository.CompleteAsync(payment.Id, false, CancellationToken.None));
     }
 
     [Fact]

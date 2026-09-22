@@ -71,16 +71,13 @@ public class PaymentsRepository : IPaymentsRepository
                 throw new InvalidOperationException("Payment could not be completed because it was not found.");
             }
 
-            if (payment.Status == PaymentStatus.Pending)
+            if (authorized)
             {
-                if (authorized)
-                {
-                    payment.Authorize();
-                }
-                else
-                {
-                    payment.Decline();
-                }
+                payment.Authorize();
+            }
+            else
+            {
+                payment.Decline();
             }
 
             return Task.FromResult(payment);

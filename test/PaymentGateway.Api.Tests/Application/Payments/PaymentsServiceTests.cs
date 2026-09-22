@@ -588,16 +588,13 @@ public sealed class PaymentsServiceTests
             lock (_syncRoot)
             {
                 var payment = _payments[paymentId];
-                if (payment.Status == PaymentStatus.Pending)
+                if (authorized)
                 {
-                    if (authorized)
-                    {
-                        payment.Authorize();
-                    }
-                    else
-                    {
-                        payment.Decline();
-                    }
+                    payment.Authorize();
+                }
+                else
+                {
+                    payment.Decline();
                 }
 
                 return Task.FromResult(payment);
