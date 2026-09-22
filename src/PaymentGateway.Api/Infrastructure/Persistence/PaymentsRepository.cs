@@ -44,6 +44,13 @@ public class PaymentsRepository : IPaymentsRepository
         return Task.CompletedTask;
     }
 
+    public Task UpdateAsync(Payment payment, CancellationToken cancellationToken)
+    {
+        _payments[payment.Id] = payment;
+
+        return Task.CompletedTask;
+    }
+
     public Task<Payment?> GetAsync(Guid paymentId, CancellationToken cancellationToken)
     {
         _payments.TryGetValue(paymentId, out var payment);

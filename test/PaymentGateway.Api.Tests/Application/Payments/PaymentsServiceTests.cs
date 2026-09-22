@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using PaymentGateway.Api.Application.Payments;
+using PaymentGateway.Api.Application.Payments.Exceptions;
 using PaymentGateway.Api.Application.Payments.Interfaces;
 using PaymentGateway.Api.Application.Payments.Models;
 using PaymentGateway.Api.Domain.Payments;
@@ -74,6 +75,18 @@ public sealed class PaymentsServiceTests
         }
 
         Assert.Equal(PaymentStatus.Authorized, storedPayment.Status);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_StoresPendingPaymentBeforeCallingBank()
+    {
+        var repository = new FakePaymentsRepository();
+        var bankClient = new InspectingBankClient(repository);
+        var service = CreateService(bankClient, repository);
+
+        await service.ProcessAsync(AuthorizedCommand, CancellationToken.None);
+
+        Assert.Equal(PaymentStatus.Pending, bankClient.PaymentStatusDuringBankCall);
     }
 
     [Fact]
@@ -170,6 +183,19 @@ public sealed class PaymentsServiceTests
         Assert.Empty(repository.Payments);
     }
 
+    [Fact]
+    public async Task ProcessAsync_LeavesPendingPayment_WhenBankIsUnavailable()
+    {
+        var repository = new FakePaymentsRepository();
+        var service = CreateService(new UnavailableBankClient(), repository);
+
+        await Assert.ThrowsAsync<AcquiringBankUnavailableException>(
+            () => service.ProcessAsync(AuthorizedCommand, CancellationToken.None));
+
+        var payment = Assert.Single(repository.Payments);
+        Assert.Equal(PaymentStatus.Pending, payment.Status);
+    }
+
     private sealed class LastDigitBankClient : IAcquiringBankClient
     {
         public Task<AcquiringBankPaymentResult> ProcessAsync(
@@ -201,6 +227,37 @@ public sealed class PaymentsServiceTests
         }
     }
 
+    private sealed class InspectingBankClient : IAcquiringBankClient
+    {
+        private readonly FakePaymentsRepository _repository;
+
+        public InspectingBankClient(FakePaymentsRepository repository)
+        {
+            _repository = repository;
+        }
+
+        public PaymentStatus? PaymentStatusDuringBankCall { get; private set; }
+
+        public Task<AcquiringBankPaymentResult> ProcessAsync(
+            AcquiringBankPaymentRequest request,
+            CancellationToken cancellationToken)
+        {
+            PaymentStatusDuringBankCall = Assert.Single(_repository.Payments).Status;
+
+            return Task.FromResult(new AcquiringBankPaymentResult(true));
+        }
+    }
+
+    private sealed class UnavailableBankClient : IAcquiringBankClient
+    {
+        public Task<AcquiringBankPaymentResult> ProcessAsync(
+            AcquiringBankPaymentRequest request,
+            CancellationToken cancellationToken)
+        {
+            throw new AcquiringBankUnavailableException("Bank unavailable.");
+        }
+    }
+
     private sealed class FakePaymentsRepository : IPaymentsRepository
     {
         private readonly Dictionary<Guid, Payment> _payments = new();
@@ -208,6 +265,13 @@ public sealed class PaymentsServiceTests
         public IReadOnlyCollection<Payment> Payments => _payments.Values.ToArray();
 
         public Task AddAsync(Payment payment, CancellationToken cancellationToken)
+        {
+            _payments[payment.Id] = payment;
+
+            return Task.CompletedTask;
+        }
+
+        public Task UpdateAsync(Payment payment, CancellationToken cancellationToken)
         {
             _payments[payment.Id] = payment;
 

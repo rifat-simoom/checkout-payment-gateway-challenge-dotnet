@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/rifat-simoom/checkout-payment-gateway-challenge-dotnet/actions/workflows/ci.yml/badge.svg)](https://github.com/rifat-simoom/checkout-payment-gateway-challenge-dotnet/actions/workflows/ci.yml)
 
-This is a .NET payment gateway implementation for the Checkout.com technical challenge. It exposes a small API that validates payment requests, forwards valid payments to the bank simulator, stores attempted payments in memory, and returns only safe card details.
+This is a .NET payment gateway implementation for the Checkout.com technical challenge. It exposes a small API that validates payment requests, creates pending payments, forwards valid payments to the bank simulator, stores payment state in memory, and returns only safe card details.
 
 ## Architecture
 
@@ -24,7 +24,7 @@ POST /payments
 GET /payments/{id}
 ```
 
-`POST /payments` processes a payment and returns `201 Created` for bank-attempted payments with status `Authorized` or `Declined`. Invalid gateway requests return `400 Bad Request` with status `Rejected`. Bank simulator failures return `502 Bad Gateway`.
+`POST /payments` processes a payment and returns `201 Created` for bank-attempted payments with status `Authorized` or `Declined`. Invalid gateway requests return `400 Bad Request` with status `Rejected`. Bank simulator failures leave the validated payment `Pending` and return `502 Bad Gateway`.
 
 `GET /payments/{id}` returns a stored payment or `404 Not Found`.
 

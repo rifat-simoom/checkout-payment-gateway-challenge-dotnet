@@ -43,6 +43,21 @@ public sealed class PaymentsService : IPaymentsService
             return ProcessPaymentResult.Rejected(validationErrors);
         }
 
+        var payment = Payment.CreatePending(
+            Guid.NewGuid(),
+            command.CardNumber,
+            command.ExpiryMonth,
+            command.ExpiryYear,
+            command.Currency,
+            command.Amount);
+
+        await _paymentsRepository.AddAsync(payment, cancellationToken);
+
+        _logger.LogInformation(
+            "Payment {PaymentId} created with status {Status}.",
+            payment.Id,
+            payment.Status);
+
         var bankResult = await _acquiringBankClient.ProcessAsync(
             new AcquiringBankPaymentRequest(
                 command.CardNumber,
@@ -53,16 +68,16 @@ public sealed class PaymentsService : IPaymentsService
                 command.Cvv),
             cancellationToken);
 
-        var payment = new Payment(
-            Guid.NewGuid(),
-            bankResult.Authorized ? PaymentStatus.Authorized : PaymentStatus.Declined,
-            command.CardNumber[^4..],
-            command.ExpiryMonth,
-            command.ExpiryYear,
-            command.Currency,
-            command.Amount);
+        if (bankResult.Authorized)
+        {
+            payment.Authorize();
+        }
+        else
+        {
+            payment.Decline();
+        }
 
-        await _paymentsRepository.AddAsync(payment, cancellationToken);
+        await _paymentsRepository.UpdateAsync(payment, cancellationToken);
 
         _logger.LogInformation(
             "Payment {PaymentId} processed with status {Status}.",

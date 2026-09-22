@@ -254,7 +254,7 @@ Map bank responses as follows:
 
 - `authorized: true` -> `Authorized`
 - `authorized: false` -> `Declined`
-- simulator unavailable or unexpected bank failure -> explicit application failure result, no payment stored, and API response `502 Bad Gateway`
+- simulator unavailable or unexpected bank failure -> explicit application failure result, payment remains `Pending`, and API response `502 Bad Gateway`
 
 ## Observability
 
@@ -374,7 +374,7 @@ Cover:
 - Unknown payment returns not found or `null`.
 - Rejected validation result does not call the bank.
 - Rejected validation result is not stored.
-- Bank unavailable produces an explicit application failure result and does not store a payment.
+- Bank unavailable produces an explicit application failure result and leaves the validated payment `Pending`.
 
 These tests should be fast and should not use HTTP.
 
