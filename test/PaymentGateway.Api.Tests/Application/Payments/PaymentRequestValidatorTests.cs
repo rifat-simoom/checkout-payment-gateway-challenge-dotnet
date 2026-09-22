@@ -17,6 +17,8 @@ public sealed class PaymentRequestValidatorTests
         yield return new object[] { ValidCommand() with { CardNumber = "12345678901234A" }, "InvalidCardNumber" };
         yield return new object[] { ValidCommand() with { ExpiryMonth = 0 }, "InvalidExpiryMonth" };
         yield return new object[] { ValidCommand() with { ExpiryMonth = 13 }, "InvalidExpiryMonth" };
+        yield return new object[] { ValidCommand() with { ExpiryYear = 0 }, "InvalidExpiryYear" };
+        yield return new object[] { ValidCommand() with { ExpiryYear = 10000 }, "InvalidExpiryYear" };
         yield return new object[] { ValidCommand() with { ExpiryMonth = 1, ExpiryYear = 2020 }, "ExpiredCard" };
         yield return new object[] { ValidCommand() with { Currency = "" }, "InvalidCurrency" };
         yield return new object[] { ValidCommand() with { Currency = "GB" }, "InvalidCurrency" };

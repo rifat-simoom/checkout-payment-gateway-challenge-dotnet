@@ -19,6 +19,7 @@ public sealed class PaymentRequestValidator
         AddIdempotencyKeyError(command, errors);
         AddCardNumberError(command, errors);
         AddExpiryMonthError(command, errors);
+        AddExpiryYearError(command, errors);
         AddExpiredCardError(command, errors);
         AddCurrencyError(command, errors);
         AddAmountError(command, errors);
@@ -79,11 +80,28 @@ public sealed class PaymentRequestValidator
         ProcessPaymentCommand command,
         List<PaymentValidationError> errors)
     {
+        if (!IsValidExpiryYear(command.ExpiryYear))
+        {
+            return;
+        }
+
         if (IsExpired(command.ExpiryMonth, command.ExpiryYear))
         {
             errors.Add(new PaymentValidationError(
                 "ExpiredCard",
                 "Expiry month and year must not be in the past."));
+        }
+    }
+
+    private static void AddExpiryYearError(
+        ProcessPaymentCommand command,
+        List<PaymentValidationError> errors)
+    {
+        if (!IsValidExpiryYear(command.ExpiryYear))
+        {
+            errors.Add(new PaymentValidationError(
+                "InvalidExpiryYear",
+                "Expiry year must be a valid four digit year."));
         }
     }
 
@@ -130,6 +148,8 @@ public sealed class PaymentRequestValidator
 
     private static bool IsValidExpiryMonth(int expiryMonth) => expiryMonth is >= 1 and <= 12;
 
+    private static bool IsValidExpiryYear(int expiryYear) => expiryYear is >= 1 and <= 9999;
+
     private static bool IsValidCurrency(string currency) =>
         !string.IsNullOrWhiteSpace(currency) &&
         currency.Length == 3 &&
@@ -142,7 +162,7 @@ public sealed class PaymentRequestValidator
 
     private static bool IsExpired(int expiryMonth, int expiryYear)
     {
-        if (!IsValidExpiryMonth(expiryMonth))
+        if (!IsValidExpiryMonth(expiryMonth) || !IsValidExpiryYear(expiryYear))
         {
             return false;
         }
