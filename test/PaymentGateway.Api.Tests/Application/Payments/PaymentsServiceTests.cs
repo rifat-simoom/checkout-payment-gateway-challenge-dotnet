@@ -201,6 +201,21 @@ public sealed class PaymentsServiceTests
     }
 
     [Fact]
+    public async Task ProcessAsync_NormalizesCurrencyBeforeStoringAndCallingBank()
+    {
+        var repository = new FakePaymentsRepository();
+        var bankClient = new TrackingBankClient();
+        var service = CreateService(bankClient, repository);
+
+        var result = await service.ProcessAsync(AuthorizedCommand with { Currency = "gbp" }, CancellationToken.None);
+
+        var payment = Assert.Single(repository.Payments);
+        Assert.Equal("GBP", result.Currency);
+        Assert.Equal("GBP", payment.Currency);
+        Assert.Equal("GBP", bankClient.LastRequest?.Currency);
+    }
+
+    [Fact]
     public async Task ProcessAsync_LeavesPendingPayment_WhenBankIsUnavailable()
     {
         var repository = new FakePaymentsRepository();
@@ -397,12 +412,15 @@ public sealed class PaymentsServiceTests
 
         public int CallCount { get; private set; }
 
+        public AcquiringBankPaymentRequest? LastRequest { get; private set; }
+
         public Task<AcquiringBankPaymentResult> ProcessAsync(
             AcquiringBankPaymentRequest request,
             CancellationToken cancellationToken)
         {
             WasCalled = true;
             CallCount++;
+            LastRequest = request;
 
             return Task.FromResult(new AcquiringBankPaymentResult(true));
         }

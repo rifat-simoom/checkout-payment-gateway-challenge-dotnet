@@ -47,6 +47,8 @@ public sealed class PaymentsService : IPaymentsService
             return ProcessPaymentResult.Rejected(validationErrors);
         }
 
+        var currency = Normalize(command.Currency);
+
         var payment = Payment.CreatePending(
             Guid.NewGuid(),
             Normalize(command.MerchantId),
@@ -55,7 +57,7 @@ public sealed class PaymentsService : IPaymentsService
             command.CardNumber,
             command.ExpiryMonth,
             command.ExpiryYear,
-            command.Currency,
+            currency,
             command.Amount);
 
         var startResult = await _paymentsRepository.StartAsync(payment, cancellationToken);
@@ -100,7 +102,7 @@ public sealed class PaymentsService : IPaymentsService
                     command.CardNumber,
                     command.ExpiryMonth,
                     command.ExpiryYear,
-                    command.Currency,
+                    currency,
                     command.Amount,
                     command.Cvv),
                 cancellationToken);
