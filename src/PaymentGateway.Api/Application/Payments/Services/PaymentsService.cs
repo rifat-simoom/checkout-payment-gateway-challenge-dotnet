@@ -92,10 +92,10 @@ public sealed class PaymentsService : IPaymentsService
             payment.Id,
             payment.Status);
 
-        Payment completedPayment;
+        AcquiringBankPaymentResult bankResult;
         try
         {
-            var bankResult = await _acquiringBankClient.ProcessAsync(
+            bankResult = await _acquiringBankClient.ProcessAsync(
                 new AcquiringBankPaymentRequest(
                     command.CardNumber,
                     command.ExpiryMonth,
@@ -104,11 +104,6 @@ public sealed class PaymentsService : IPaymentsService
                     command.Amount,
                     command.Cvv),
                 cancellationToken);
-
-            completedPayment = await _paymentsRepository.CompleteAsync(
-                payment.Id,
-                bankResult.Authorized,
-                cancellationToken);
         }
         catch
         {
@@ -116,6 +111,11 @@ public sealed class PaymentsService : IPaymentsService
 
             throw;
         }
+
+        var completedPayment = await _paymentsRepository.CompleteAsync(
+            payment.Id,
+            bankResult.Authorized,
+            cancellationToken);
 
         _logger.LogInformation(
             "Payment {PaymentId} processed with status {Status}.",

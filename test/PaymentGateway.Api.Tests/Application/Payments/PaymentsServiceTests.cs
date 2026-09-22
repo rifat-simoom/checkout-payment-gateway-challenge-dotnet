@@ -233,6 +233,26 @@ public sealed class PaymentsServiceTests
     }
 
     [Fact]
+    public async Task ProcessAsync_DoesNotRetryBank_WhenCompletionFailsAfterBankAuthorizes()
+    {
+        var repository = new FailingCompletePaymentsRepository();
+        var bankClient = new TrackingBankClient();
+        var service = CreateService(bankClient, repository);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => service.ProcessAsync(AuthorizedCommand, CancellationToken.None));
+
+        var replayResult = await service.ProcessAsync(AuthorizedCommand, CancellationToken.None);
+
+        Assert.Equal(PaymentStatus.Pending, replayResult.Status);
+        Assert.False(replayResult.IsNewPayment);
+        Assert.Equal(1, bankClient.CallCount);
+
+        var payment = Assert.Single(repository.Payments);
+        Assert.True(payment.IsProcessing);
+    }
+
+    [Fact]
     public async Task ProcessAsync_DoesNotConflict_WhenOnlyCvvChangesForSameIdempotencyKey()
     {
         var repository = new FakePaymentsRepository();
@@ -442,7 +462,7 @@ public sealed class PaymentsServiceTests
         }
     }
 
-    private sealed class FakePaymentsRepository : IPaymentsRepository
+    private class FakePaymentsRepository : IPaymentsRepository
     {
         private readonly Dictionary<Guid, Payment> _payments = new();
         private readonly Dictionary<string, Guid> _idempotencyKeys = new();
@@ -509,7 +529,7 @@ public sealed class PaymentsServiceTests
             return Task.CompletedTask;
         }
 
-        public Task<Payment> CompleteAsync(Guid paymentId, bool authorized, CancellationToken cancellationToken)
+        public virtual Task<Payment> CompleteAsync(Guid paymentId, bool authorized, CancellationToken cancellationToken)
         {
             lock (_syncRoot)
             {
@@ -551,6 +571,14 @@ public sealed class PaymentsServiceTests
 
                 return Task.CompletedTask;
             }
+        }
+    }
+
+    private sealed class FailingCompletePaymentsRepository : FakePaymentsRepository
+    {
+        public override Task<Payment> CompleteAsync(Guid paymentId, bool authorized, CancellationToken cancellationToken)
+        {
+            throw new InvalidOperationException("Completion failed.");
         }
     }
 
