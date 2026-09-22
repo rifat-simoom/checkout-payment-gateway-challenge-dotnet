@@ -1,8 +1,10 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+
 using PaymentGateway.Api.Application.Payments.Exceptions;
 using PaymentGateway.Api.Application.Payments.Models;
 using PaymentGateway.Api.Infrastructure.Bank;
