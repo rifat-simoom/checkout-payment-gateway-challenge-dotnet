@@ -23,13 +23,12 @@ public class PaymentsController : Controller
     [HttpPost]
     public async Task<ActionResult<PostPaymentResponse>> PostPaymentAsync(
         PostPaymentRequest request,
+        [FromHeader(Name = "X-Merchant-Id")] string merchantId,
+        [FromHeader(Name = "Idempotency-Key")] string idempotencyKey,
         CancellationToken cancellationToken)
     {
         try
         {
-            var merchantId = Request.Headers["X-Merchant-Id"].ToString();
-            var idempotencyKey = Request.Headers["Idempotency-Key"].ToString();
-
             var result = await _paymentsService.ProcessAsync(
                 new ProcessPaymentCommand(
                     merchantId,
@@ -74,9 +73,9 @@ public class PaymentsController : Controller
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<GetPaymentResponse>> GetPaymentAsync(
         Guid id,
+        [FromHeader(Name = "X-Merchant-Id")] string merchantId,
         CancellationToken cancellationToken)
     {
-        var merchantId = Request.Headers["X-Merchant-Id"].ToString();
         if (string.IsNullOrWhiteSpace(merchantId))
         {
             return new BadRequestResult();

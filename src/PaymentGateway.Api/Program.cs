@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using PaymentGateway.Api.Application.Payments.Interfaces;
 using PaymentGateway.Api.Application.Payments.Services;
+using PaymentGateway.Api.Api.Swagger;
 using PaymentGateway.Api.Infrastructure.Bank;
 using PaymentGateway.Api.Infrastructure.Persistence;
 
@@ -13,7 +14,10 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.OperationFilter<PaymentHeadersOperationFilter>();
+});
 
 builder.Services.Configure<BankSimulatorOptions>(
     builder.Configuration.GetSection(BankSimulatorOptions.SectionName));
