@@ -14,7 +14,7 @@ public class PaymentsRepository : IPaymentsRepository
         _payments[payment.Id] = new Payment(
             payment.Id,
             payment.Status,
-            payment.CardNumberLastFour.ToString("0000"),
+            payment.LastFourCardDigits,
             payment.ExpiryMonth,
             payment.ExpiryYear,
             payment.Currency,
@@ -28,7 +28,7 @@ public class PaymentsRepository : IPaymentsRepository
             {
                 Id = payment.Id,
                 Status = payment.Status,
-                CardNumberLastFour = int.Parse(payment.LastFourCardDigits),
+                LastFourCardDigits = payment.LastFourCardDigits,
                 ExpiryMonth = payment.ExpiryMonth,
                 ExpiryYear = payment.ExpiryYear,
                 Currency = payment.Currency,

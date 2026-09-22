@@ -1,0 +1,198 @@
+{
+  "info": {
+    "_postman_id": "4b0448e2-a9fd-4ef3-9b56-3e6c4f31b46d",
+    "name": "Payment Gateway",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5067"
+    },
+    {
+      "key": "paymentId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Process Authorized Payment",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"cardNumber\": \"2222405343248877\",\n  \"expiryMonth\": 12,\n  \"expiryYear\": 2030,\n  \"currency\": \"GBP\",\n  \"amount\": 100,\n  \"cvv\": \"123\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/payments",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "payments"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('returns 201 Created', function () {",
+              "  pm.response.to.have.status(201);",
+              "});",
+              "",
+              "const response = pm.response.json();",
+              "pm.collectionVariables.set('paymentId', response.id);",
+              "",
+              "pm.test('returns authorized payment details', function () {",
+              "  pm.expect(response.status).to.eql('Authorized');",
+              "  pm.expect(response.lastFourCardDigits).to.eql('8877');",
+              "  pm.expect(response.cardNumber).to.be.undefined;",
+              "  pm.expect(response.cvv).to.be.undefined;",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Process Declined Payment",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"cardNumber\": \"2222405343248878\",\n  \"expiryMonth\": 12,\n  \"expiryYear\": 2030,\n  \"currency\": \"GBP\",\n  \"amount\": 100,\n  \"cvv\": \"123\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/payments",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "payments"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('returns 201 Created', function () {",
+              "  pm.response.to.have.status(201);",
+              "});",
+              "",
+              "const response = pm.response.json();",
+              "",
+              "pm.test('returns declined payment details', function () {",
+              "  pm.expect(response.status).to.eql('Declined');",
+              "  pm.expect(response.lastFourCardDigits).to.eql('8878');",
+              "  pm.expect(response.cardNumber).to.be.undefined;",
+              "  pm.expect(response.cvv).to.be.undefined;",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject Invalid Payment",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"cardNumber\": \"invalid\",\n  \"expiryMonth\": 12,\n  \"expiryYear\": 2030,\n  \"currency\": \"GBP\",\n  \"amount\": 100,\n  \"cvv\": \"123\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/payments",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "payments"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('returns 400 Bad Request', function () {",
+              "  pm.response.to.have.status(400);",
+              "});",
+              "",
+              "const response = pm.response.json();",
+              "",
+              "pm.test('returns rejected payment errors', function () {",
+              "  pm.expect(response.status).to.eql('Rejected');",
+              "  pm.expect(response.errors).to.be.an('array').that.is.not.empty;",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Get Payment",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/payments/{{paymentId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "payments",
+            "{{paymentId}}"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('returns 200 OK', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "",
+              "const response = pm.response.json();",
+              "",
+              "pm.test('returns safe payment details', function () {",
+              "  pm.expect(response.id).to.eql(pm.collectionVariables.get('paymentId'));",
+              "  pm.expect(response.lastFourCardDigits).to.eql('8877');",
+              "  pm.expect(response.cardNumber).to.be.undefined;",
+              "  pm.expect(response.cvv).to.be.undefined;",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
