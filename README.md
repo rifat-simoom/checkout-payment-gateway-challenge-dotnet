@@ -24,7 +24,7 @@ POST /payments
 GET /payments/{id}
 ```
 
-`POST /payments` requires `X-Merchant-Id` and `Idempotency-Key` headers. It processes a payment and returns `201 Created` for the first bank-attempted payment with status `Authorized` or `Declined`. Idempotent replays for the same merchant/key and same payment details return `200 OK` with the existing payment and do not call the bank again while the original request is in flight or already completed. Reusing the same merchant/key for different payment details returns `409 Conflict`. Invalid gateway requests return `400 Bad Request` with status `Rejected`. Bank simulator failures leave the validated payment `Pending`, mark it retryable, and return `502 Bad Gateway`.
+`POST /payments` requires `X-Merchant-Id` and `Idempotency-Key` headers. It processes a payment and returns `201 Created` for the first bank-attempted payment with status `Authorized` or `Declined`. Idempotent replays for the same merchant/key and same payment details return `200 OK` with the existing payment and do not call the bank again while the original request is in flight or already completed. Reusing the same merchant/key for different payment details returns `409 Conflict`. Invalid gateway requests return `400 Bad Request` with status `Rejected`. Explicit bank simulator failures leave the validated payment `Pending`, mark it retryable, and return `502 Bad Gateway`. Ambiguous bank outcomes, such as timeouts or transport failures, leave the payment `Pending` and non-retryable to avoid duplicate authorization.
 
 `GET /payments/{id}` requires `X-Merchant-Id` and returns a stored payment for that merchant or `404 Not Found`.
 
@@ -107,8 +107,8 @@ GitHub Actions runs restore, release build, and tests on pushes and pull request
 
 - Supported currencies are `GBP`, `USD`, and `EUR`.
 - Expiry validation accepts cards expiring in the current month.
-- Bank simulator failures are returned as `502 Bad Gateway`, and the pending payment can be retried with the same merchant/idempotency key.
-- If the bank authorizes or declines a payment but the gateway fails before storing the terminal state, the payment remains `Pending` and is not automatically retried against the bank to avoid a duplicate authorization.
+- Explicit bank simulator failures are returned as `502 Bad Gateway`, and the pending payment can be retried with the same merchant/idempotency key.
+- If the bank outcome is ambiguous, or the bank authorizes or declines a payment but the gateway fails before storing the terminal state, the payment remains `Pending` and is not automatically retried against the bank to avoid a duplicate authorization.
 - Persistence is in memory for challenge simplicity.
 - The API avoids MediatR, CQRS, Kubernetes, and broader production infrastructure because they are unnecessary for this scope.
 

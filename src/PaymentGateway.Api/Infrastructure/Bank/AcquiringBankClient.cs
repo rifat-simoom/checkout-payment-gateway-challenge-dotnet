@@ -78,7 +78,7 @@ public sealed class AcquiringBankClient : IAcquiringBankClient
                 "Acquiring bank request failed after {ElapsedMilliseconds}ms.",
                 stopwatch.ElapsedMilliseconds);
 
-            throw new AcquiringBankUnavailableException("Acquiring bank request failed.", exception);
+            throw new AcquiringBankOutcomeUnknownException("Acquiring bank request failed.", exception);
         }
         catch (TaskCanceledException exception) when (!cancellationToken.IsCancellationRequested)
         {

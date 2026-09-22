@@ -81,6 +81,15 @@ public sealed class AcquiringBankClientTests
             () => client.ProcessAsync(ValidRequest(), CancellationToken.None));
     }
 
+    [Fact]
+    public async Task ProcessAsync_ThrowsOutcomeUnknownException_WhenBankTransportFails()
+    {
+        var client = CreateClient(new TransportFailureHttpMessageHandler());
+
+        await Assert.ThrowsAsync<AcquiringBankOutcomeUnknownException>(
+            () => client.ProcessAsync(ValidRequest(), CancellationToken.None));
+    }
+
     private static AcquiringBankClient CreateClient(HttpMessageHandler messageHandler)
     {
         var httpClient = new HttpClient(messageHandler);
@@ -119,6 +128,16 @@ public sealed class AcquiringBankClientTests
             CancellationToken cancellationToken)
         {
             throw new TaskCanceledException("The request timed out.");
+        }
+    }
+
+    private sealed class TransportFailureHttpMessageHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            throw new HttpRequestException("The response connection was closed.");
         }
     }
 }

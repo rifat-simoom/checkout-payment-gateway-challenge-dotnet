@@ -270,7 +270,8 @@ Map bank responses as follows:
 
 - `authorized: true` -> `Authorized`
 - `authorized: false` -> `Declined`
-- simulator unavailable or unexpected bank failure -> explicit application failure result, payment remains `Pending`, processing is marked failed so the same merchant/idempotency key can retry, and API response `502 Bad Gateway`
+- explicit simulator non-success response -> explicit application failure result, payment remains `Pending`, processing is marked failed so the same merchant/idempotency key can retry, and API response `502 Bad Gateway`
+- ambiguous bank outcome such as timeout or transport failure -> `502 Bad Gateway`, payment remains `Pending`, and processing must not be marked failed because retry could duplicate an authorization
 
 ## Observability
 
@@ -390,7 +391,8 @@ Cover:
 - Unknown payment returns not found or `null`.
 - Rejected validation result does not call the bank.
 - Rejected validation result is not stored.
-- Bank unavailable produces an explicit application failure result, leaves the validated payment `Pending`, and allows a later retry with the same merchant/idempotency key.
+- Explicit bank non-success produces an application failure result, leaves the validated payment `Pending`, and allows a later retry with the same merchant/idempotency key.
+- Timeout or transport failure leaves the validated payment `Pending` without allowing automated retry.
 
 These tests should be fast and should not use HTTP.
 
