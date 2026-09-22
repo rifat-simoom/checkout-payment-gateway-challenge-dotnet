@@ -326,9 +326,9 @@ dotnet run --project src/PaymentGateway.Api
 docker-compose up
 ```
 
-Keep the existing `docker-compose.yml` for the bank simulator and do not change the `imposters/` directory.
+Keep `docker-compose.yml` capable of starting both the API and the bank simulator, and do not change the `imposters/` directory.
 
-Add an API `Dockerfile` only if it remains simple and optional. The API must still be runnable without Docker.
+The API `Dockerfile` must remain simple and optional. The API must still be runnable without Docker.
 
 If adding Docker support for the API:
 

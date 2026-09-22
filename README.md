@@ -59,21 +59,27 @@ dotnet build PaymentGateway.sln --configuration Release --no-restore
 dotnet test PaymentGateway.sln --configuration Release --no-build
 ```
 
-Start the bank simulator:
+Start the API and bank simulator together:
 
 ```bash
 docker-compose up
 ```
 
-Run the API:
+The API is exposed on:
+
+```text
+http://localhost:5067
+```
+
+Swagger is available in development at `/swagger`.
+
+To run the API without Docker, start the bank simulator with Docker Compose and then run:
 
 ```bash
 dotnet run --project src/PaymentGateway.Api
 ```
 
-The HTTP launch profile uses `http://localhost:5067`. Swagger is available in development at `/swagger`.
-
-The bank simulator URL is configured with `BankSimulator:BaseUrl` in `appsettings.json` and defaults to `http://localhost:8080`.
+The bank simulator URL is configured with `BankSimulator:BaseUrl` in `appsettings.json` and defaults to `http://localhost:8080` for local `dotnet run`. Docker Compose does not publish the bank simulator to the host; the containerized API uses `BankSimulator__BaseUrl=http://bank-simulator:8080` on the internal Compose network.
 
 ## Postman
 
