@@ -1,5 +1,4 @@
 ﻿using System.Collections.Concurrent;
-using PaymentGateway.Api.Api.Contracts.Responses;
 using PaymentGateway.Api.Application.Payments.Interfaces;
 using PaymentGateway.Api.Application.Payments.Models;
 using PaymentGateway.Api.Domain.Payments;
@@ -11,39 +10,6 @@ public class PaymentsRepository : IPaymentsRepository
     private readonly ConcurrentDictionary<Guid, Payment> _payments = new();
     private readonly ConcurrentDictionary<string, Guid> _idempotencyKeys = new();
     private readonly object _syncRoot = new();
-    
-    public void Add(PostPaymentResponse payment)
-    {
-        _payments[payment.Id] = new Payment(
-            payment.Id,
-            payment.Status,
-            string.Empty,
-            string.Empty,
-            string.Empty,
-            false,
-            payment.LastFourCardDigits,
-            payment.ExpiryMonth,
-            payment.ExpiryYear,
-            payment.Currency,
-            payment.Amount);
-    }
-
-    public PostPaymentResponse? Get(Guid id)
-    {
-        return _payments.TryGetValue(id, out var payment)
-            ? new PostPaymentResponse
-            {
-                Id = payment.Id,
-                Status = payment.Status,
-                LastFourCardDigits = payment.LastFourCardDigits,
-                ExpiryMonth = payment.ExpiryMonth,
-                ExpiryYear = payment.ExpiryYear,
-                Currency = payment.Currency,
-                Amount = payment.Amount
-            }
-            : null;
-    }
-
     public Task<PaymentStartResult> StartAsync(Payment payment, CancellationToken cancellationToken)
     {
         var idempotencyStorageKey = GetIdempotencyStorageKey(payment.MerchantId, payment.IdempotencyKey);
