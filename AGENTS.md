@@ -139,6 +139,7 @@ Rules:
 - Do not leak internal exception names or stack traces in API responses.
 - Avoid action-style routes such as `POST /process-payment`.
 - Keep response shapes shallow and easy to read.
+- When adding or changing an API endpoint, update the Postman collection/scripts in the same task. Create `postman/PaymentGateway.postman_collection.json` if it does not exist.
 
 ## Architecture
 
@@ -500,6 +501,7 @@ Update the README with:
 - Local run instructions.
 - Docker run instructions.
 - Test instructions.
+- Postman collection instructions, once the collection exists.
 - Bank simulator instructions.
 - Observability and sensitive-data logging rules.
 - Future improvements kept out of scope.
@@ -521,6 +523,7 @@ Ask these questions before considering the solution review-ready:
 - Are external boundaries represented by meaningful interfaces?
 - Is the domain model small and focused on payment state rather than infrastructure concerns?
 - Are API routes resource-oriented and response shapes shallow?
+- Are Postman requests and scripts updated for every added or changed API endpoint?
 - Do HTTP status codes distinguish API outcomes from payment outcomes?
 - Are full card numbers and CVV absent from persistence, responses, logs, and documentation examples where they should not appear?
 - Are logs structured and useful without exposing sensitive payment data?
@@ -550,6 +553,7 @@ Before considering the implementation complete, verify:
 - Rejected payments are not stored.
 - `GET /payments/{id}` returns stored safe payment details.
 - `GET /payments/{id}` returns `404 Not Found` for unknown ids.
+- Postman collection requests and scripts match the implemented API behavior.
 - Bank simulator unavailable behavior returns `502 Bad Gateway`.
 - API responses never include CVV.
 - API responses never include the full card number.
