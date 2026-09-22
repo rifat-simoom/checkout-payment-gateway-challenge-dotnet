@@ -33,7 +33,7 @@ public class PaymentsControllerTests
                 new Payment(paymentId, PaymentStatus.Authorized, "8877", 12, 2030, "GBP", 100))
         });
 
-        var response = await client.PostAsJsonAsync("/payments", ValidRequest());
+        var response = await PostPaymentAsync(client, ValidRequest());
         var responseBody = await response.Content.ReadAsStringAsync();
         var paymentResponse = await response.Content.ReadFromJsonAsync<PostPaymentResponse>(JsonOptions);
 
@@ -63,7 +63,7 @@ public class PaymentsControllerTests
                 new Payment(Guid.NewGuid(), PaymentStatus.Declined, "8878", 12, 2030, "GBP", 100))
         });
 
-        var response = await client.PostAsJsonAsync("/payments", ValidRequest());
+        var response = await PostPaymentAsync(client, ValidRequest());
         var responseBody = await response.Content.ReadAsStringAsync();
         var paymentResponse = await response.Content.ReadFromJsonAsync<PostPaymentResponse>(JsonOptions);
 
@@ -89,7 +89,7 @@ public class PaymentsControllerTests
             })
         });
 
-        var response = await client.PostAsJsonAsync("/payments", ValidRequest());
+        var response = await PostPaymentAsync(client, ValidRequest());
         var responseBody = await response.Content.ReadAsStringAsync();
         var rejectedResponse = await response.Content.ReadFromJsonAsync<PostPaymentRejectedResponse>(JsonOptions);
 
@@ -112,9 +112,62 @@ public class PaymentsControllerTests
             ThrowBankUnavailable = true
         });
 
-        var response = await client.PostAsJsonAsync("/payments", ValidRequest());
+        var response = await PostPaymentAsync(client, ValidRequest());
 
         Assert.Equal(HttpStatusCode.BadGateway, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task PostPayment_ReturnsOk_WhenPaymentIsIdempotencyReplay()
+    {
+        var paymentId = Guid.NewGuid();
+        var client = CreateClient(new FakePaymentsService
+        {
+            ProcessResult = ProcessPaymentResult.Authorized(
+                new Payment(paymentId, PaymentStatus.Authorized, "8877", 12, 2030, "GBP", 100),
+                false)
+        });
+
+        var response = await PostPaymentAsync(client, ValidRequest());
+        var paymentResponse = await response.Content.ReadFromJsonAsync<PostPaymentResponse>(JsonOptions);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        if (paymentResponse is null)
+        {
+            throw new InvalidOperationException("Payment response body was not returned.");
+        }
+
+        Assert.Equal(paymentId, paymentResponse.Id);
+    }
+
+    [Fact]
+    public async Task PostPayment_ReturnsConflict_WhenIdempotencyKeyIsReusedForDifferentPayment()
+    {
+        var client = CreateClient(new FakePaymentsService
+        {
+            ThrowIdempotencyConflict = true
+        });
+
+        var response = await PostPaymentAsync(client, ValidRequest());
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task PostPayment_PassesMerchantAndIdempotencyHeadersToApplication()
+    {
+        var paymentsService = new FakePaymentsService();
+        var client = CreateClient(paymentsService);
+
+        await PostPaymentAsync(client, ValidRequest(), "merchant-999", "invoice-999");
+
+        if (paymentsService.LastCommand is null)
+        {
+            throw new InvalidOperationException("Payment command was not captured.");
+        }
+
+        Assert.Equal("merchant-999", paymentsService.LastCommand.MerchantId);
+        Assert.Equal("invoice-999", paymentsService.LastCommand.IdempotencyKey);
     }
 
     [Fact]
@@ -176,6 +229,22 @@ public class PaymentsControllerTests
             Cvv = "123"
         };
 
+    private static Task<HttpResponseMessage> PostPaymentAsync(
+        HttpClient client,
+        PostPaymentRequest request,
+        string merchantId = "merchant-001",
+        string idempotencyKey = "invoice-001")
+    {
+        var message = new HttpRequestMessage(HttpMethod.Post, "/payments")
+        {
+            Content = JsonContent.Create(request)
+        };
+        message.Headers.Add("X-Merchant-Id", merchantId);
+        message.Headers.Add("Idempotency-Key", idempotencyKey);
+
+        return client.SendAsync(message);
+    }
+
     private static void AssertDoesNotExposeSensitiveCardData(string responseBody)
     {
         Assert.DoesNotContain("\"cardNumber\"", responseBody, StringComparison.OrdinalIgnoreCase);
@@ -193,10 +262,21 @@ public class PaymentsControllerTests
 
         public bool ThrowBankUnavailable { get; init; }
 
+        public bool ThrowIdempotencyConflict { get; init; }
+
+        public ProcessPaymentCommand? LastCommand { get; private set; }
+
         public Task<ProcessPaymentResult> ProcessAsync(
             ProcessPaymentCommand command,
             CancellationToken cancellationToken)
         {
+            LastCommand = command;
+
+            if (ThrowIdempotencyConflict)
+            {
+                throw new IdempotencyKeyConflictException();
+            }
+
             if (ThrowBankUnavailable)
             {
                 throw new AcquiringBankUnavailableException("Bank unavailable.");

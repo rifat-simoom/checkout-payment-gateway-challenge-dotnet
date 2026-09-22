@@ -10,6 +10,8 @@ namespace PaymentGateway.Api.Tests.Application.Payments;
 public sealed class PaymentsServiceTests
 {
     private static readonly ProcessPaymentCommand AuthorizedCommand = new(
+        "merchant-001",
+        "invoice-001",
         "2222405343248877",
         12,
         2030,
@@ -18,6 +20,8 @@ public sealed class PaymentsServiceTests
         "123");
 
     private static readonly ProcessPaymentCommand DeclinedCommand = new(
+        "merchant-001",
+        "invoice-002",
         "2222405343248878",
         12,
         2030,
@@ -196,6 +200,52 @@ public sealed class PaymentsServiceTests
         Assert.Equal(PaymentStatus.Pending, payment.Status);
     }
 
+    [Fact]
+    public async Task ProcessAsync_ReturnsExistingPaymentAndDoesNotCallBank_WhenIdempotencyKeyIsReplayed()
+    {
+        var repository = new FakePaymentsRepository();
+        var bankClient = new TrackingBankClient();
+        var service = CreateService(bankClient, repository);
+
+        var firstResult = await service.ProcessAsync(AuthorizedCommand, CancellationToken.None);
+        var secondResult = await service.ProcessAsync(AuthorizedCommand, CancellationToken.None);
+
+        Assert.Equal(firstResult.Id, secondResult.Id);
+        Assert.False(secondResult.IsNewPayment);
+        Assert.Equal(1, bankClient.CallCount);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_AllowsSameIdempotencyKeyForDifferentMerchant()
+    {
+        var repository = new FakePaymentsRepository();
+        var bankClient = new TrackingBankClient();
+        var service = CreateService(bankClient, repository);
+
+        var firstResult = await service.ProcessAsync(AuthorizedCommand, CancellationToken.None);
+        var secondResult = await service.ProcessAsync(
+            AuthorizedCommand with { MerchantId = "merchant-002" },
+            CancellationToken.None);
+
+        Assert.NotEqual(firstResult.Id, secondResult.Id);
+        Assert.Equal(2, bankClient.CallCount);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_ThrowsConflict_WhenIdempotencyKeyIsReusedForDifferentPayment()
+    {
+        var repository = new FakePaymentsRepository();
+        var bankClient = new TrackingBankClient();
+        var service = CreateService(bankClient, repository);
+
+        await service.ProcessAsync(AuthorizedCommand, CancellationToken.None);
+
+        await Assert.ThrowsAsync<IdempotencyKeyConflictException>(
+            () => service.ProcessAsync(AuthorizedCommand with { Amount = 200 }, CancellationToken.None));
+
+        Assert.Equal(1, bankClient.CallCount);
+    }
+
     private sealed class LastDigitBankClient : IAcquiringBankClient
     {
         public Task<AcquiringBankPaymentResult> ProcessAsync(
@@ -217,11 +267,14 @@ public sealed class PaymentsServiceTests
     {
         public bool WasCalled { get; private set; }
 
+        public int CallCount { get; private set; }
+
         public Task<AcquiringBankPaymentResult> ProcessAsync(
             AcquiringBankPaymentRequest request,
             CancellationToken cancellationToken)
         {
             WasCalled = true;
+            CallCount++;
 
             return Task.FromResult(new AcquiringBankPaymentResult(true));
         }
@@ -261,8 +314,28 @@ public sealed class PaymentsServiceTests
     private sealed class FakePaymentsRepository : IPaymentsRepository
     {
         private readonly Dictionary<Guid, Payment> _payments = new();
+        private readonly Dictionary<string, Guid> _idempotencyKeys = new();
 
         public IReadOnlyCollection<Payment> Payments => _payments.Values.ToArray();
+
+        public Task<PaymentStartResult> StartAsync(Payment payment, CancellationToken cancellationToken)
+        {
+            var storageKey = $"{payment.MerchantId}:{payment.IdempotencyKey}";
+            if (_idempotencyKeys.TryGetValue(storageKey, out var existingPaymentId))
+            {
+                var existingPayment = _payments[existingPaymentId];
+
+                return Task.FromResult(
+                    existingPayment.RequestFingerprint == payment.RequestFingerprint
+                        ? PaymentStartResult.Existing(existingPayment)
+                        : PaymentStartResult.Conflict(existingPayment));
+            }
+
+            _payments[payment.Id] = payment;
+            _idempotencyKeys[storageKey] = payment.Id;
+
+            return Task.FromResult(PaymentStartResult.Created(payment));
+        }
 
         public Task AddAsync(Payment payment, CancellationToken cancellationToken)
         {

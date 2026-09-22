@@ -15,6 +15,8 @@ public sealed class PaymentRequestValidator
     {
         var errors = new List<PaymentValidationError>();
 
+        AddMerchantIdError(command, errors);
+        AddIdempotencyKeyError(command, errors);
         AddCardNumberError(command, errors);
         AddExpiryMonthError(command, errors);
         AddExpiredCardError(command, errors);
@@ -23,6 +25,30 @@ public sealed class PaymentRequestValidator
         AddCvvError(command, errors);
 
         return errors;
+    }
+
+    private static void AddMerchantIdError(
+        ProcessPaymentCommand command,
+        List<PaymentValidationError> errors)
+    {
+        if (string.IsNullOrWhiteSpace(command.MerchantId))
+        {
+            errors.Add(new PaymentValidationError(
+                "InvalidMerchantId",
+                "Merchant id is required."));
+        }
+    }
+
+    private static void AddIdempotencyKeyError(
+        ProcessPaymentCommand command,
+        List<PaymentValidationError> errors)
+    {
+        if (string.IsNullOrWhiteSpace(command.IdempotencyKey))
+        {
+            errors.Add(new PaymentValidationError(
+                "InvalidIdempotencyKey",
+                "Idempotency key is required."));
+        }
     }
 
     private static void AddCardNumberError(

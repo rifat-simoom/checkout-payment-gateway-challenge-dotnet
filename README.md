@@ -24,13 +24,19 @@ POST /payments
 GET /payments/{id}
 ```
 
-`POST /payments` processes a payment and returns `201 Created` for bank-attempted payments with status `Authorized` or `Declined`. Invalid gateway requests return `400 Bad Request` with status `Rejected`. Bank simulator failures leave the validated payment `Pending` and return `502 Bad Gateway`.
+`POST /payments` requires `X-Merchant-Id` and `Idempotency-Key` headers. It processes a payment and returns `201 Created` for the first bank-attempted payment with status `Authorized` or `Declined`. Idempotent replays for the same merchant/key and same payment details return `200 OK` with the existing payment and do not call the bank again. Reusing the same merchant/key for different payment details returns `409 Conflict`. Invalid gateway requests return `400 Bad Request` with status `Rejected`. Bank simulator failures leave the validated payment `Pending` and return `502 Bad Gateway`.
 
 `GET /payments/{id}` returns a stored payment or `404 Not Found`.
 
 Responses return safe card details only: the full card number and CVV are not returned.
 
 Example request:
+
+```http
+POST /payments
+X-Merchant-Id: merchant-001
+Idempotency-Key: invoice-001
+```
 
 ```json
 {

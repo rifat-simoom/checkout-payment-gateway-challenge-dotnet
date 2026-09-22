@@ -1,4 +1,7 @@
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.Extensions.Logging;
+using PaymentGateway.Api.Application.Payments.Exceptions;
 using PaymentGateway.Api.Application.Payments.Interfaces;
 using PaymentGateway.Api.Application.Payments.Models;
 using PaymentGateway.Api.Application.Payments.Validators;
@@ -46,13 +49,40 @@ public sealed class PaymentsService : IPaymentsService
 
         var payment = Payment.CreatePending(
             Guid.NewGuid(),
+            Normalize(command.MerchantId),
+            Normalize(command.IdempotencyKey),
+            CreateRequestFingerprint(command),
             command.CardNumber,
             command.ExpiryMonth,
             command.ExpiryYear,
             command.Currency,
             command.Amount);
 
-        await _paymentsRepository.AddAsync(payment, cancellationToken);
+        var startResult = await _paymentsRepository.StartAsync(payment, cancellationToken);
+        if (startResult.Status == PaymentStartStatus.Conflict)
+        {
+            _logger.LogWarning(
+                "Idempotency key conflict for merchant {MerchantId}.",
+                Normalize(command.MerchantId));
+
+            throw new IdempotencyKeyConflictException();
+        }
+
+        if (startResult.Status == PaymentStartStatus.Existing)
+        {
+            _logger.LogInformation(
+                "Payment {PaymentId} returned from idempotency replay with status {Status}.",
+                startResult.Payment.Id,
+                startResult.Payment.Status);
+
+            return startResult.Payment.Status switch
+            {
+                PaymentStatus.Authorized => ProcessPaymentResult.Authorized(startResult.Payment, false),
+                PaymentStatus.Declined => ProcessPaymentResult.Declined(startResult.Payment, false),
+                PaymentStatus.Pending => ProcessPaymentResult.Pending(startResult.Payment),
+                _ => throw new InvalidOperationException("Unexpected stored payment status.")
+            };
+        }
 
         _logger.LogInformation(
             "Payment {PaymentId} created with status {Status}.",
@@ -108,4 +138,22 @@ public sealed class PaymentsService : IPaymentsService
 
         return GetPaymentResult.FromPayment(payment);
     }
+
+    private static string CreateRequestFingerprint(ProcessPaymentCommand command)
+    {
+        var normalizedPaymentIntent = string.Join(
+            "|",
+            Normalize(command.CardNumber),
+            command.ExpiryMonth.ToString("00"),
+            command.ExpiryYear.ToString("0000"),
+            Normalize(command.Currency),
+            command.Amount.ToString(),
+            Normalize(command.Cvv));
+
+        var fingerprintBytes = SHA256.HashData(Encoding.UTF8.GetBytes(normalizedPaymentIntent));
+
+        return Convert.ToHexString(fingerprintBytes);
+    }
+
+    private static string Normalize(string value) => value.Trim().ToUpperInvariant();
 }

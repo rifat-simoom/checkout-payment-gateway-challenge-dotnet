@@ -9,6 +9,8 @@ public sealed class PaymentRequestValidatorTests
 
     public static IEnumerable<object[]> InvalidCommands()
     {
+        yield return new object[] { ValidCommand() with { MerchantId = "" }, "InvalidMerchantId" };
+        yield return new object[] { ValidCommand() with { IdempotencyKey = "" }, "InvalidIdempotencyKey" };
         yield return new object[] { ValidCommand() with { CardNumber = "" }, "InvalidCardNumber" };
         yield return new object[] { ValidCommand() with { CardNumber = "1234567890123" }, "InvalidCardNumber" };
         yield return new object[] { ValidCommand() with { CardNumber = "12345678901234567890" }, "InvalidCardNumber" };
@@ -61,6 +63,8 @@ public sealed class PaymentRequestValidatorTests
 
     private static ProcessPaymentCommand ValidCommand() =>
         new(
+            "merchant-001",
+            "invoice-001",
             "2222405343248877",
             12,
             DateTime.UtcNow.Year + 1,

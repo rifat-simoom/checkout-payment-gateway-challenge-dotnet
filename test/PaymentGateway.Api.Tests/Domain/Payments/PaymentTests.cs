@@ -9,10 +9,22 @@ public sealed class PaymentTests
     {
         var paymentId = Guid.NewGuid();
 
-        var payment = Payment.CreatePending(paymentId, "2222405343248877", 12, 2030, "GBP", 100);
+        var payment = Payment.CreatePending(
+            paymentId,
+            "merchant-001",
+            "invoice-001",
+            "fingerprint-001",
+            "2222405343248877",
+            12,
+            2030,
+            "GBP",
+            100);
 
         Assert.Equal(paymentId, payment.Id);
         Assert.Equal(PaymentStatus.Pending, payment.Status);
+        Assert.Equal("merchant-001", payment.MerchantId);
+        Assert.Equal("invoice-001", payment.IdempotencyKey);
+        Assert.Equal("fingerprint-001", payment.RequestFingerprint);
         Assert.Equal("8877", payment.LastFourCardDigits);
         Assert.Equal(12, payment.ExpiryMonth);
         Assert.Equal(2030, payment.ExpiryYear);
@@ -23,7 +35,7 @@ public sealed class PaymentTests
     [Fact]
     public void Authorize_UpdatesPaymentStatusToAuthorized()
     {
-        var payment = Payment.CreatePending(Guid.NewGuid(), "2222405343248877", 12, 2030, "GBP", 100);
+        var payment = CreatePendingPayment();
 
         payment.Authorize();
 
@@ -33,7 +45,7 @@ public sealed class PaymentTests
     [Fact]
     public void Decline_UpdatesPaymentStatusToDeclined()
     {
-        var payment = Payment.CreatePending(Guid.NewGuid(), "2222405343248878", 12, 2030, "GBP", 100);
+        var payment = CreatePendingPayment();
 
         payment.Decline();
 
@@ -43,9 +55,21 @@ public sealed class PaymentTests
     [Fact]
     public void Authorize_Throws_WhenPaymentIsNotPending()
     {
-        var payment = Payment.CreatePending(Guid.NewGuid(), "2222405343248877", 12, 2030, "GBP", 100);
+        var payment = CreatePendingPayment();
         payment.Authorize();
 
         Assert.Throws<InvalidOperationException>(() => payment.Authorize());
     }
+
+    private static Payment CreatePendingPayment() =>
+        Payment.CreatePending(
+            Guid.NewGuid(),
+            "merchant-001",
+            "invoice-001",
+            "fingerprint-001",
+            "2222405343248877",
+            12,
+            2030,
+            "GBP",
+            100);
 }

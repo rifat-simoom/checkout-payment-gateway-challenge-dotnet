@@ -10,9 +10,27 @@ public sealed class Payment
         int expiryYear,
         string currency,
         int amount)
+        : this(id, status, string.Empty, string.Empty, string.Empty, lastFourCardDigits, expiryMonth, expiryYear, currency, amount)
+    {
+    }
+
+    public Payment(
+        Guid id,
+        PaymentStatus status,
+        string merchantId,
+        string idempotencyKey,
+        string requestFingerprint,
+        string lastFourCardDigits,
+        int expiryMonth,
+        int expiryYear,
+        string currency,
+        int amount)
     {
         Id = id;
         Status = status;
+        MerchantId = merchantId;
+        IdempotencyKey = idempotencyKey;
+        RequestFingerprint = requestFingerprint;
         LastFourCardDigits = lastFourCardDigits;
         ExpiryMonth = expiryMonth;
         ExpiryYear = expiryYear;
@@ -23,6 +41,12 @@ public sealed class Payment
     public Guid Id { get; }
 
     public PaymentStatus Status { get; private set; }
+
+    public string MerchantId { get; }
+
+    public string IdempotencyKey { get; }
+
+    public string RequestFingerprint { get; }
 
     public string LastFourCardDigits { get; }
 
@@ -36,6 +60,9 @@ public sealed class Payment
 
     public static Payment CreatePending(
         Guid id,
+        string merchantId,
+        string idempotencyKey,
+        string requestFingerprint,
         string cardNumber,
         int expiryMonth,
         int expiryYear,
@@ -44,6 +71,9 @@ public sealed class Payment
         new(
             id,
             PaymentStatus.Pending,
+            merchantId,
+            idempotencyKey,
+            requestFingerprint,
             cardNumber[^4..],
             expiryMonth,
             expiryYear,

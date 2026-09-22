@@ -27,8 +27,13 @@ public class PaymentsController : Controller
     {
         try
         {
+            var merchantId = Request.Headers["X-Merchant-Id"].ToString();
+            var idempotencyKey = Request.Headers["Idempotency-Key"].ToString();
+
             var result = await _paymentsService.ProcessAsync(
                 new ProcessPaymentCommand(
+                    merchantId,
+                    idempotencyKey,
                     request.CardNumber,
                     request.ExpiryMonth,
                     request.ExpiryYear,
@@ -48,7 +53,13 @@ public class PaymentsController : Controller
 
             var response = ToPostPaymentResponse(result);
 
-            return new CreatedResult($"/payments/{response.Id}", response);
+            return result.IsNewPayment
+                ? new CreatedResult($"/payments/{response.Id}", response)
+                : new OkObjectResult(response);
+        }
+        catch (IdempotencyKeyConflictException)
+        {
+            return new ConflictResult();
         }
         catch (AcquiringBankUnavailableException)
         {

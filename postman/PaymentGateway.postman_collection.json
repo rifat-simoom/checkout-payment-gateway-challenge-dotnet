@@ -12,6 +12,10 @@
     {
       "key": "paymentId",
       "value": ""
+    },
+    {
+      "key": "merchantId",
+      "value": "merchant-001"
     }
   ],
   "item": [
@@ -23,6 +27,14 @@
           {
             "key": "Content-Type",
             "value": "application/json"
+          },
+          {
+            "key": "X-Merchant-Id",
+            "value": "{{merchantId}}"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "invoice-authorized-001"
           }
         ],
         "body": {
@@ -71,6 +83,14 @@
           {
             "key": "Content-Type",
             "value": "application/json"
+          },
+          {
+            "key": "X-Merchant-Id",
+            "value": "{{merchantId}}"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "invoice-declined-001"
           }
         ],
         "body": {
@@ -118,6 +138,14 @@
           {
             "key": "Content-Type",
             "value": "application/json"
+          },
+          {
+            "key": "X-Merchant-Id",
+            "value": "{{merchantId}}"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "invoice-invalid-001"
           }
         ],
         "body": {

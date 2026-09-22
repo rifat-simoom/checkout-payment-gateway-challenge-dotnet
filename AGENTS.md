@@ -83,6 +83,8 @@ Use HTTP status codes for API/transport outcomes and payment `status` values for
 Recommended status mapping:
 
 - `201 Created` for processed payments that were sent to the bank and stored, whether `Authorized` or `Declined`.
+- `200 OK` for idempotent POST replays for the same merchant, idempotency key, and payment details.
+- `409 Conflict` when a merchant reuses an idempotency key for different payment details.
 - `400 Bad Request` for gateway validation failures with payment status `Rejected`.
 - `404 Not Found` when retrieving an unknown payment id.
 - `502 Bad Gateway` for bank simulator failures.
@@ -90,6 +92,13 @@ Recommended status mapping:
 - `200 OK` for health.
 
 Prefer simple JSON contracts with camelCase external property names:
+
+`POST /payments` requires these headers:
+
+```http
+X-Merchant-Id: merchant-001
+Idempotency-Key: invoice-001
+```
 
 ```json
 {
@@ -222,6 +231,8 @@ Gateway-side invalid requests should produce a `Rejected` result and must not ca
 
 Validate:
 
+- Merchant id is required from `X-Merchant-Id`.
+- Idempotency key is required from `Idempotency-Key`.
 - Card number is required, numeric, and 14-19 characters long.
 - Expiry month is required and between 1 and 12.
 - Expiry year is required.

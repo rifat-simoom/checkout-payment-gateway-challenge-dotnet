@@ -10,16 +10,22 @@ public sealed record ProcessPaymentResult(
     int? ExpiryYear,
     string? Currency,
     int? Amount,
-    IReadOnlyCollection<PaymentValidationError> Errors)
+    IReadOnlyCollection<PaymentValidationError> Errors,
+    bool IsNewPayment)
 {
-    public static ProcessPaymentResult Authorized(Payment payment) => FromPayment(payment);
+    public static ProcessPaymentResult Authorized(Payment payment, bool isNewPayment = true) =>
+        FromPayment(payment, isNewPayment);
 
-    public static ProcessPaymentResult Declined(Payment payment) => FromPayment(payment);
+    public static ProcessPaymentResult Declined(Payment payment, bool isNewPayment = true) =>
+        FromPayment(payment, isNewPayment);
+
+    public static ProcessPaymentResult Pending(Payment payment, bool isNewPayment = false) =>
+        FromPayment(payment, isNewPayment);
 
     public static ProcessPaymentResult Rejected(IReadOnlyCollection<PaymentValidationError> errors) =>
-        new(null, PaymentStatus.Rejected, null, null, null, null, null, errors);
+        new(null, PaymentStatus.Rejected, null, null, null, null, null, errors, false);
 
-    private static ProcessPaymentResult FromPayment(Payment payment) =>
+    private static ProcessPaymentResult FromPayment(Payment payment, bool isNewPayment) =>
         new(
             payment.Id,
             payment.Status,
@@ -28,5 +34,6 @@ public sealed record ProcessPaymentResult(
             payment.ExpiryYear,
             payment.Currency,
             payment.Amount,
-            Array.Empty<PaymentValidationError>());
+            Array.Empty<PaymentValidationError>(),
+            isNewPayment);
 }
