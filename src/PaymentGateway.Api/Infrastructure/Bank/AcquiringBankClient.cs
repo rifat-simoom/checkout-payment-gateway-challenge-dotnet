@@ -1,5 +1,7 @@
+using System.Diagnostics;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PaymentGateway.Api.Application.Payments;
 
@@ -8,10 +10,15 @@ namespace PaymentGateway.Api.Infrastructure.Bank;
 public sealed class AcquiringBankClient : IAcquiringBankClient
 {
     private readonly HttpClient _httpClient;
+    private readonly ILogger<AcquiringBankClient> _logger;
 
-    public AcquiringBankClient(HttpClient httpClient, IOptions<BankSimulatorOptions> options)
+    public AcquiringBankClient(
+        HttpClient httpClient,
+        IOptions<BankSimulatorOptions> options,
+        ILogger<AcquiringBankClient> logger)
     {
         _httpClient = httpClient;
+        _logger = logger;
         _httpClient.BaseAddress = options.Value.BaseUrl;
     }
 
@@ -19,6 +26,8 @@ public sealed class AcquiringBankClient : IAcquiringBankClient
         AcquiringBankPaymentRequest request,
         CancellationToken cancellationToken)
     {
+        var stopwatch = Stopwatch.StartNew();
+
         try
         {
             var response = await _httpClient.PostAsJsonAsync(
@@ -26,8 +35,18 @@ public sealed class AcquiringBankClient : IAcquiringBankClient
                 BankPaymentRequest.FromPaymentRequest(request),
                 cancellationToken);
 
+            _logger.LogInformation(
+                "Acquiring bank responded with {BankStatusCode} in {ElapsedMilliseconds}ms.",
+                (int)response.StatusCode,
+                stopwatch.ElapsedMilliseconds);
+
             if (!response.IsSuccessStatusCode)
             {
+                _logger.LogWarning(
+                    "Acquiring bank returned non-success status {BankStatusCode} in {ElapsedMilliseconds}ms.",
+                    (int)response.StatusCode,
+                    stopwatch.ElapsedMilliseconds);
+
                 throw new AcquiringBankUnavailableException(
                     $"Acquiring bank returned {(int)response.StatusCode}.");
             }
@@ -37,6 +56,10 @@ public sealed class AcquiringBankClient : IAcquiringBankClient
 
             if (bankResponse is null)
             {
+                _logger.LogWarning(
+                    "Acquiring bank returned an empty response in {ElapsedMilliseconds}ms.",
+                    stopwatch.ElapsedMilliseconds);
+
                 throw new AcquiringBankUnavailableException("Acquiring bank returned an empty response.");
             }
 
@@ -48,6 +71,11 @@ public sealed class AcquiringBankClient : IAcquiringBankClient
         }
         catch (HttpRequestException exception)
         {
+            _logger.LogError(
+                exception,
+                "Acquiring bank request failed after {ElapsedMilliseconds}ms.",
+                stopwatch.ElapsedMilliseconds);
+
             throw new AcquiringBankUnavailableException("Acquiring bank request failed.", exception);
         }
     }

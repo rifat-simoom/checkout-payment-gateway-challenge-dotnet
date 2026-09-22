@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using PaymentGateway.Api.Domain.Payments;
 
 namespace PaymentGateway.Api.Application.Payments;
@@ -5,14 +6,17 @@ namespace PaymentGateway.Api.Application.Payments;
 public sealed class PaymentsService : IPaymentsService
 {
     private readonly IAcquiringBankClient _acquiringBankClient;
+    private readonly ILogger<PaymentsService> _logger;
     private readonly IPaymentsRepository _paymentsRepository;
     private readonly PaymentRequestValidator _paymentRequestValidator;
 
     public PaymentsService(
         IAcquiringBankClient acquiringBankClient,
-        IPaymentsRepository paymentsRepository)
+        IPaymentsRepository paymentsRepository,
+        ILogger<PaymentsService> logger)
     {
         _acquiringBankClient = acquiringBankClient;
+        _logger = logger;
         _paymentsRepository = paymentsRepository;
         _paymentRequestValidator = new PaymentRequestValidator();
     }
@@ -21,9 +25,19 @@ public sealed class PaymentsService : IPaymentsService
         ProcessPaymentCommand command,
         CancellationToken cancellationToken)
     {
+        _logger.LogInformation(
+            "Payment processing started for currency {Currency} and amount {Amount}.",
+            command.Currency,
+            command.Amount);
+
         var validationErrors = _paymentRequestValidator.Validate(command);
         if (validationErrors.Count > 0)
         {
+            _logger.LogWarning(
+                "Payment request rejected with {ErrorCount} validation errors: {ValidationErrorCodes}.",
+                validationErrors.Count,
+                validationErrors.Select(error => error.Code).ToArray());
+
             return ProcessPaymentResult.Rejected(validationErrors);
         }
 
@@ -48,6 +62,11 @@ public sealed class PaymentsService : IPaymentsService
 
         await _paymentsRepository.AddAsync(payment, cancellationToken);
 
+        _logger.LogInformation(
+            "Payment {PaymentId} processed with status {Status}.",
+            payment.Id,
+            payment.Status);
+
         return payment.Status == PaymentStatus.Authorized
             ? ProcessPaymentResult.Authorized(payment)
             : ProcessPaymentResult.Declined(payment);
@@ -57,6 +76,18 @@ public sealed class PaymentsService : IPaymentsService
     {
         var payment = await _paymentsRepository.GetAsync(paymentId, cancellationToken);
 
-        return payment is null ? null : GetPaymentResult.FromPayment(payment);
+        if (payment is null)
+        {
+            _logger.LogInformation("Payment {PaymentId} not found.", paymentId);
+
+            return null;
+        }
+
+        _logger.LogInformation(
+            "Payment {PaymentId} retrieved with status {Status}.",
+            payment.Id,
+            payment.Status);
+
+        return GetPaymentResult.FromPayment(payment);
     }
 }

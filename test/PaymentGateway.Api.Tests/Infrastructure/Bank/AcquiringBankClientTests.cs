@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using PaymentGateway.Api.Application.Payments;
 using PaymentGateway.Api.Infrastructure.Bank;
@@ -78,7 +79,7 @@ public sealed class AcquiringBankClientTests
             BaseUrl = new Uri("http://bank.test")
         });
 
-        return new AcquiringBankClient(httpClient, options);
+        return new AcquiringBankClient(httpClient, options, NullLogger<AcquiringBankClient>.Instance);
     }
 
     private static AcquiringBankPaymentRequest ValidRequest() =>

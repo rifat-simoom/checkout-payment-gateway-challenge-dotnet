@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging.Abstractions;
 using PaymentGateway.Api.Application.Payments;
 using PaymentGateway.Api.Domain.Payments;
 
@@ -25,7 +26,7 @@ public sealed class PaymentsServiceTests
     public async Task ProcessAsync_ReturnsAuthorizedPayment_WhenBankAuthorizesPayment()
     {
         var repository = new FakePaymentsRepository();
-        var service = new PaymentsService(new LastDigitBankClient(), repository);
+        var service = CreateService(new LastDigitBankClient(), repository);
 
         var result = await service.ProcessAsync(AuthorizedCommand, CancellationToken.None);
 
@@ -42,7 +43,7 @@ public sealed class PaymentsServiceTests
     public async Task ProcessAsync_ReturnsDeclinedPayment_WhenBankDeclinesPayment()
     {
         var repository = new FakePaymentsRepository();
-        var service = new PaymentsService(new LastDigitBankClient(), repository);
+        var service = CreateService(new LastDigitBankClient(), repository);
 
         var result = await service.ProcessAsync(DeclinedCommand, CancellationToken.None);
 
@@ -55,7 +56,7 @@ public sealed class PaymentsServiceTests
     public async Task ProcessAsync_StoresAuthorizedPayment()
     {
         var repository = new FakePaymentsRepository();
-        var service = new PaymentsService(new LastDigitBankClient(), repository);
+        var service = CreateService(new LastDigitBankClient(), repository);
 
         var result = await service.ProcessAsync(AuthorizedCommand, CancellationToken.None);
 
@@ -77,7 +78,7 @@ public sealed class PaymentsServiceTests
     public async Task ProcessAsync_StoresDeclinedPayment()
     {
         var repository = new FakePaymentsRepository();
-        var service = new PaymentsService(new LastDigitBankClient(), repository);
+        var service = CreateService(new LastDigitBankClient(), repository);
 
         var result = await service.ProcessAsync(DeclinedCommand, CancellationToken.None);
 
@@ -101,7 +102,7 @@ public sealed class PaymentsServiceTests
         var payment = new Payment(Guid.NewGuid(), PaymentStatus.Authorized, "8877", 12, 2030, "GBP", 100);
         var repository = new FakePaymentsRepository();
         await repository.AddAsync(payment, CancellationToken.None);
-        var service = new PaymentsService(new LastDigitBankClient(), repository);
+        var service = CreateService(new LastDigitBankClient(), repository);
 
         var result = await service.GetAsync(payment.Id, CancellationToken.None);
 
@@ -122,7 +123,7 @@ public sealed class PaymentsServiceTests
     [Fact]
     public async Task GetAsync_ReturnsNull_WhenPaymentDoesNotExist()
     {
-        var service = new PaymentsService(new LastDigitBankClient(), new FakePaymentsRepository());
+        var service = CreateService(new LastDigitBankClient(), new FakePaymentsRepository());
 
         var result = await service.GetAsync(Guid.NewGuid(), CancellationToken.None);
 
@@ -132,7 +133,7 @@ public sealed class PaymentsServiceTests
     [Fact]
     public async Task ProcessAsync_ReturnsRejected_WhenCommandIsInvalid()
     {
-        var service = new PaymentsService(
+        var service = CreateService(
             new TrackingBankClient(),
             new FakePaymentsRepository());
 
@@ -149,7 +150,7 @@ public sealed class PaymentsServiceTests
     public async Task ProcessAsync_DoesNotCallBank_WhenCommandIsInvalid()
     {
         var bankClient = new TrackingBankClient();
-        var service = new PaymentsService(bankClient, new FakePaymentsRepository());
+        var service = CreateService(bankClient, new FakePaymentsRepository());
 
         await service.ProcessAsync(AuthorizedCommand with { CardNumber = "invalid" }, CancellationToken.None);
 
@@ -160,7 +161,7 @@ public sealed class PaymentsServiceTests
     public async Task ProcessAsync_DoesNotStorePayment_WhenCommandIsInvalid()
     {
         var repository = new FakePaymentsRepository();
-        var service = new PaymentsService(new TrackingBankClient(), repository);
+        var service = CreateService(new TrackingBankClient(), repository);
 
         await service.ProcessAsync(AuthorizedCommand with { CardNumber = "invalid" }, CancellationToken.None);
 
@@ -178,6 +179,11 @@ public sealed class PaymentsServiceTests
             return Task.FromResult(new AcquiringBankPaymentResult(lastDigit % 2 == 1));
         }
     }
+
+    private static PaymentsService CreateService(
+        IAcquiringBankClient bankClient,
+        IPaymentsRepository repository) =>
+        new(bankClient, repository, NullLogger<PaymentsService>.Instance);
 
     private sealed class TrackingBankClient : IAcquiringBankClient
     {
