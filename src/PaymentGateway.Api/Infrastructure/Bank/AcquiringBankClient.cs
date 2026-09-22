@@ -4,6 +4,8 @@ using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PaymentGateway.Api.Application.Payments;
+using PaymentGateway.Api.Application.Payments.Interfaces;
+using PaymentGateway.Api.Application.Payments.Models;
 
 namespace PaymentGateway.Api.Infrastructure.Bank;
 

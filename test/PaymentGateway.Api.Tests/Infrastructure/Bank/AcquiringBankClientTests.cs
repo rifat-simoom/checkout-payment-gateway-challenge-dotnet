@@ -4,6 +4,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using PaymentGateway.Api.Application.Payments;
+using PaymentGateway.Api.Application.Payments.Models;
 using PaymentGateway.Api.Infrastructure.Bank;
 
 namespace PaymentGateway.Api.Tests.Infrastructure.Bank;

@@ -1,6 +1,6 @@
 using PaymentGateway.Api.Domain.Payments;
 
-namespace PaymentGateway.Api.Application.Payments;
+namespace PaymentGateway.Api.Application.Payments.Models;
 
 public sealed record ProcessPaymentResult(
     Guid? Id,

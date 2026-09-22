@@ -152,6 +152,8 @@ src/PaymentGateway.Api/
     Contracts/
   Application/
     Payments/
+      Interfaces/
+      Models/
   Domain/
     Payments/
   Infrastructure/
@@ -162,7 +164,7 @@ src/PaymentGateway.Api/
 Layer responsibilities:
 
 - `Api`: controllers, HTTP request/response contracts, status code mapping, and dependency registration.
-- `Application`: payment use cases, validation orchestration, result models, and interfaces for external boundaries.
+- `Application`: payment use cases and validation orchestration. Put application interfaces in `Interfaces/` and commands/results/application models in `Models/`.
 - `Domain`: payment model, payment status, and payment-specific rules that are not HTTP or infrastructure concerns.
 - `Infrastructure`: acquiring bank HTTP client and in-memory payment repository implementation.
 

@@ -1,4 +1,4 @@
-namespace PaymentGateway.Api.Application.Payments;
+namespace PaymentGateway.Api.Application.Payments.Models;
 
 public sealed record ProcessPaymentCommand(
     string CardNumber,

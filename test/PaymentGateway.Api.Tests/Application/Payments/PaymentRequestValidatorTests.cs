@@ -1,4 +1,5 @@
 using PaymentGateway.Api.Application.Payments;
+using PaymentGateway.Api.Application.Payments.Models;
 
 namespace PaymentGateway.Api.Tests.Application.Payments;
 

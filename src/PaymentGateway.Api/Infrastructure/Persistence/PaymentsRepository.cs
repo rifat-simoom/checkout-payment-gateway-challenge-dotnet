@@ -1,6 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using PaymentGateway.Api.Api.Contracts.Responses;
-using PaymentGateway.Api.Application.Payments;
+using PaymentGateway.Api.Application.Payments.Interfaces;
 using PaymentGateway.Api.Domain.Payments;
 
 namespace PaymentGateway.Api.Infrastructure.Persistence;

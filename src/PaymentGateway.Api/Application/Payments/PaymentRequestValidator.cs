@@ -1,3 +1,5 @@
+using PaymentGateway.Api.Application.Payments.Models;
+
 namespace PaymentGateway.Api.Application.Payments;
 
 public sealed class PaymentRequestValidator

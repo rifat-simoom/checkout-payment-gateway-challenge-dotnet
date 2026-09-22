@@ -1,4 +1,6 @@
-namespace PaymentGateway.Api.Application.Payments;
+using PaymentGateway.Api.Application.Payments.Models;
+
+namespace PaymentGateway.Api.Application.Payments.Interfaces;
 
 public interface IAcquiringBankClient
 {
