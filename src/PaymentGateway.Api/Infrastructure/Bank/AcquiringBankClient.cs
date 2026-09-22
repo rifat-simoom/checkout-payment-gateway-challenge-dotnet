@@ -87,7 +87,7 @@ public sealed class AcquiringBankClient : IAcquiringBankClient
                 "Acquiring bank request timed out after {ElapsedMilliseconds}ms.",
                 stopwatch.ElapsedMilliseconds);
 
-            throw new AcquiringBankUnavailableException("Acquiring bank request timed out.", exception);
+            throw new AcquiringBankOutcomeUnknownException("Acquiring bank request timed out.", exception);
         }
     }
 

@@ -105,7 +105,7 @@ public sealed class PaymentsService : IPaymentsService
                     command.Cvv),
                 cancellationToken);
         }
-        catch
+        catch (AcquiringBankUnavailableException)
         {
             await _paymentsRepository.MarkProcessingFailedAsync(payment.Id, CancellationToken.None);
 

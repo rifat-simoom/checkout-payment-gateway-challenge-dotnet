@@ -65,6 +65,10 @@ public class PaymentsController : Controller
         {
             return new StatusCodeResult(StatusCodes.Status502BadGateway);
         }
+        catch (AcquiringBankOutcomeUnknownException)
+        {
+            return new StatusCodeResult(StatusCodes.Status502BadGateway);
+        }
     }
 
     [HttpGet("{id:guid}")]

@@ -73,11 +73,11 @@ public sealed class AcquiringBankClientTests
     }
 
     [Fact]
-    public async Task ProcessAsync_ThrowsUnavailableException_WhenBankRequestTimesOut()
+    public async Task ProcessAsync_ThrowsOutcomeUnknownException_WhenBankRequestTimesOut()
     {
         var client = CreateClient(new TimeoutHttpMessageHandler());
 
-        await Assert.ThrowsAsync<AcquiringBankUnavailableException>(
+        await Assert.ThrowsAsync<AcquiringBankOutcomeUnknownException>(
             () => client.ProcessAsync(ValidRequest(), CancellationToken.None));
     }
 

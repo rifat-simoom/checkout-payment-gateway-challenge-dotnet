@@ -253,6 +253,26 @@ public sealed class PaymentsServiceTests
     }
 
     [Fact]
+    public async Task ProcessAsync_DoesNotRetryBank_WhenBankOutcomeIsUnknown()
+    {
+        var repository = new FakePaymentsRepository();
+        var bankClient = new UnknownOutcomeBankClient();
+        var service = CreateService(bankClient, repository);
+
+        await Assert.ThrowsAsync<AcquiringBankOutcomeUnknownException>(
+            () => service.ProcessAsync(AuthorizedCommand, CancellationToken.None));
+
+        var replayResult = await service.ProcessAsync(AuthorizedCommand, CancellationToken.None);
+
+        Assert.Equal(PaymentStatus.Pending, replayResult.Status);
+        Assert.False(replayResult.IsNewPayment);
+        Assert.Equal(1, bankClient.CallCount);
+
+        var payment = Assert.Single(repository.Payments);
+        Assert.True(payment.IsProcessing);
+    }
+
+    [Fact]
     public async Task ProcessAsync_DoesNotConflict_WhenOnlyCvvChangesForSameIdempotencyKey()
     {
         var repository = new FakePaymentsRepository();
@@ -459,6 +479,22 @@ public sealed class PaymentsServiceTests
             }
 
             return Task.FromResult(new AcquiringBankPaymentResult(true));
+        }
+    }
+
+    private sealed class UnknownOutcomeBankClient : IAcquiringBankClient
+    {
+        public int CallCount { get; private set; }
+
+        public Task<AcquiringBankPaymentResult> ProcessAsync(
+            AcquiringBankPaymentRequest request,
+            CancellationToken cancellationToken)
+        {
+            CallCount++;
+
+            throw new AcquiringBankOutcomeUnknownException(
+                "Bank outcome is unknown.",
+                new TaskCanceledException("The request timed out."));
         }
     }
 
