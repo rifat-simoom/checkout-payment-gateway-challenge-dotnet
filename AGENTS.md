@@ -58,49 +58,6 @@ Apply these principles across the whole implementation:
 - Observability: log useful lifecycle events without logging secrets.
 - Packaging and hosting: make the API easy to run locally and optionally with Docker.
 
-## Architecture
-
-Use a lightweight layered structure:
-
-```text
-src/PaymentGateway.Api/
-  Api/
-    Controllers/
-    Contracts/
-  Application/
-    Payments/
-  Domain/
-    Payments/
-  Infrastructure/
-    Bank/
-    Persistence/
-```
-
-Layer responsibilities:
-
-- `Api`: controllers, HTTP request/response contracts, status code mapping, and dependency registration.
-- `Application`: payment use cases, validation orchestration, result models, and interfaces for external boundaries.
-- `Domain`: payment model, payment status, and payment-specific rules that are not HTTP or infrastructure concerns.
-- `Infrastructure`: acquiring bank HTTP client and in-memory payment repository implementation.
-
-Prefer one application service for this challenge:
-
-```csharp
-public interface IPaymentsService
-{
-    Task<ProcessPaymentResult> ProcessAsync(ProcessPaymentCommand command, CancellationToken cancellationToken);
-    Task<GetPaymentResult?> GetAsync(Guid paymentId, CancellationToken cancellationToken);
-}
-```
-
-Use interfaces for meaningful boundaries:
-
-- `IPaymentsService`
-- `IPaymentsRepository`
-- `IAcquiringBankClient`
-
-Avoid unnecessary ceremony such as CQRS, MediatR, generic repositories, unit-of-work abstractions, mapping libraries, Kubernetes, Helm, or cloud deployment templates.
-
 ## API Design
 
 Keep the API small, resource-oriented, and explicit about outcomes.
@@ -182,6 +139,49 @@ Rules:
 - Do not leak internal exception names or stack traces in API responses.
 - Avoid action-style routes such as `POST /process-payment`.
 - Keep response shapes shallow and easy to read.
+
+## Architecture
+
+Use a lightweight layered structure:
+
+```text
+src/PaymentGateway.Api/
+  Api/
+    Controllers/
+    Contracts/
+  Application/
+    Payments/
+  Domain/
+    Payments/
+  Infrastructure/
+    Bank/
+    Persistence/
+```
+
+Layer responsibilities:
+
+- `Api`: controllers, HTTP request/response contracts, status code mapping, and dependency registration.
+- `Application`: payment use cases, validation orchestration, result models, and interfaces for external boundaries.
+- `Domain`: payment model, payment status, and payment-specific rules that are not HTTP or infrastructure concerns.
+- `Infrastructure`: acquiring bank HTTP client and in-memory payment repository implementation.
+
+Prefer one application service for this challenge:
+
+```csharp
+public interface IPaymentsService
+{
+    Task<ProcessPaymentResult> ProcessAsync(ProcessPaymentCommand command, CancellationToken cancellationToken);
+    Task<GetPaymentResult?> GetAsync(Guid paymentId, CancellationToken cancellationToken);
+}
+```
+
+Use interfaces for meaningful boundaries:
+
+- `IPaymentsService`
+- `IPaymentsRepository`
+- `IAcquiringBankClient`
+
+Avoid unnecessary ceremony such as CQRS, MediatR, generic repositories, unit-of-work abstractions, mapping libraries, Kubernetes, Helm, or cloud deployment templates.
 
 ## Data Safety
 
