@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Net.Http.Json;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -53,8 +54,21 @@ public sealed class AcquiringBankClient : IAcquiringBankClient
                     $"Acquiring bank returned {(int)response.StatusCode}.");
             }
 
-            var bankResponse = await response.Content.ReadFromJsonAsync<BankPaymentResponse>(
-                cancellationToken: cancellationToken);
+            BankPaymentResponse? bankResponse;
+            try
+            {
+                bankResponse = await response.Content.ReadFromJsonAsync<BankPaymentResponse>(
+                    cancellationToken: cancellationToken);
+            }
+            catch (JsonException exception)
+            {
+                _logger.LogWarning(
+                    exception,
+                    "Acquiring bank returned an unparseable response in {ElapsedMilliseconds}ms.",
+                    stopwatch.ElapsedMilliseconds);
+
+                throw new AcquiringBankOutcomeUnknownException("Acquiring bank returned an unparseable response.", exception);
+            }
 
             if (bankResponse is null)
             {
@@ -62,12 +76,16 @@ public sealed class AcquiringBankClient : IAcquiringBankClient
                     "Acquiring bank returned an empty response in {ElapsedMilliseconds}ms.",
                     stopwatch.ElapsedMilliseconds);
 
-                throw new AcquiringBankUnavailableException("Acquiring bank returned an empty response.");
+                throw new AcquiringBankOutcomeUnknownException("Acquiring bank returned an empty response.");
             }
 
             return new AcquiringBankPaymentResult(bankResponse.Authorized);
         }
         catch (AcquiringBankUnavailableException)
+        {
+            throw;
+        }
+        catch (AcquiringBankOutcomeUnknownException)
         {
             throw;
         }

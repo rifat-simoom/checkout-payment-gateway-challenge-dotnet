@@ -90,6 +90,19 @@ public sealed class AcquiringBankClientTests
             () => client.ProcessAsync(ValidRequest(), CancellationToken.None));
     }
 
+    [Fact]
+    public async Task ProcessAsync_ThrowsOutcomeUnknownException_WhenBankReturnsUnparsableBody()
+    {
+        var client = CreateClient(new StubHttpMessageHandler(
+            _ => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(string.Empty)
+            }));
+
+        await Assert.ThrowsAsync<AcquiringBankOutcomeUnknownException>(
+            () => client.ProcessAsync(ValidRequest(), CancellationToken.None));
+    }
+
     private static AcquiringBankClient CreateClient(HttpMessageHandler messageHandler)
     {
         var httpClient = new HttpClient(messageHandler);
