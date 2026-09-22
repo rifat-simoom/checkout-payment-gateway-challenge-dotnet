@@ -67,23 +67,57 @@ public class PaymentsRepository : IPaymentsRepository
 
     public Task AddAsync(Payment payment, CancellationToken cancellationToken)
     {
-        _payments[payment.Id] = payment;
+        lock (_syncRoot)
+        {
+            _payments[payment.Id] = payment;
+        }
 
         return Task.CompletedTask;
     }
 
     public Task UpdateAsync(Payment payment, CancellationToken cancellationToken)
     {
-        _payments[payment.Id] = payment;
+        lock (_syncRoot)
+        {
+            _payments[payment.Id] = payment;
+        }
 
         return Task.CompletedTask;
     }
 
+    public Task<Payment> CompleteAsync(Guid paymentId, bool authorized, CancellationToken cancellationToken)
+    {
+        lock (_syncRoot)
+        {
+            if (!_payments.TryGetValue(paymentId, out var payment))
+            {
+                throw new InvalidOperationException("Payment could not be completed because it was not found.");
+            }
+
+            if (payment.Status == PaymentStatus.Pending)
+            {
+                if (authorized)
+                {
+                    payment.Authorize();
+                }
+                else
+                {
+                    payment.Decline();
+                }
+            }
+
+            return Task.FromResult(payment);
+        }
+    }
+
     public Task<Payment?> GetAsync(Guid paymentId, CancellationToken cancellationToken)
     {
-        _payments.TryGetValue(paymentId, out var payment);
+        lock (_syncRoot)
+        {
+            _payments.TryGetValue(paymentId, out var payment);
 
-        return Task.FromResult(payment);
+            return Task.FromResult(payment);
+        }
     }
 
     private static string GetIdempotencyStorageKey(string merchantId, string idempotencyKey) =>

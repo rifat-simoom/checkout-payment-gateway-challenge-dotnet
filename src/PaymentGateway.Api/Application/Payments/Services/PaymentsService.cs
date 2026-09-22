@@ -99,25 +99,19 @@ public sealed class PaymentsService : IPaymentsService
                 command.Cvv),
             cancellationToken);
 
-        if (bankResult.Authorized)
-        {
-            payment.Authorize();
-        }
-        else
-        {
-            payment.Decline();
-        }
-
-        await _paymentsRepository.UpdateAsync(payment, cancellationToken);
+        var completedPayment = await _paymentsRepository.CompleteAsync(
+            payment.Id,
+            bankResult.Authorized,
+            cancellationToken);
 
         _logger.LogInformation(
             "Payment {PaymentId} processed with status {Status}.",
-            payment.Id,
-            payment.Status);
+            completedPayment.Id,
+            completedPayment.Status);
 
-        return payment.Status == PaymentStatus.Authorized
-            ? ProcessPaymentResult.Authorized(payment)
-            : ProcessPaymentResult.Declined(payment);
+        return completedPayment.Status == PaymentStatus.Authorized
+            ? ProcessPaymentResult.Authorized(completedPayment)
+            : ProcessPaymentResult.Declined(completedPayment);
     }
 
     public async Task<GetPaymentResult?> GetAsync(Guid paymentId, CancellationToken cancellationToken)

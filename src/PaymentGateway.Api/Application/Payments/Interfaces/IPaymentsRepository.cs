@@ -11,5 +11,7 @@ public interface IPaymentsRepository
 
     Task UpdateAsync(Payment payment, CancellationToken cancellationToken);
 
+    Task<Payment> CompleteAsync(Guid paymentId, bool authorized, CancellationToken cancellationToken);
+
     Task<Payment?> GetAsync(Guid paymentId, CancellationToken cancellationToken);
 }

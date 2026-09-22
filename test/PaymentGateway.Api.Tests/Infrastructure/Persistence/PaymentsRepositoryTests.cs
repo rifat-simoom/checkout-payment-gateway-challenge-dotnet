@@ -33,6 +33,45 @@ public sealed class PaymentsRepositoryTests
     }
 
     [Fact]
+    public async Task CompleteAsync_AuthorizesPendingPayment()
+    {
+        var repository = new PaymentsRepository();
+        var payment = CreatePendingPayment();
+        await repository.StartAsync(payment, CancellationToken.None);
+
+        var completedPayment = await repository.CompleteAsync(payment.Id, true, CancellationToken.None);
+
+        Assert.Same(payment, completedPayment);
+        Assert.Equal(PaymentStatus.Authorized, completedPayment.Status);
+    }
+
+    [Fact]
+    public async Task CompleteAsync_DeclinesPendingPayment()
+    {
+        var repository = new PaymentsRepository();
+        var payment = CreatePendingPayment();
+        await repository.StartAsync(payment, CancellationToken.None);
+
+        var completedPayment = await repository.CompleteAsync(payment.Id, false, CancellationToken.None);
+
+        Assert.Same(payment, completedPayment);
+        Assert.Equal(PaymentStatus.Declined, completedPayment.Status);
+    }
+
+    [Fact]
+    public async Task CompleteAsync_DoesNotChangeAlreadyCompletedPayment()
+    {
+        var repository = new PaymentsRepository();
+        var payment = CreatePendingPayment();
+        await repository.StartAsync(payment, CancellationToken.None);
+        await repository.CompleteAsync(payment.Id, true, CancellationToken.None);
+
+        var completedPayment = await repository.CompleteAsync(payment.Id, false, CancellationToken.None);
+
+        Assert.Equal(PaymentStatus.Authorized, completedPayment.Status);
+    }
+
+    [Fact]
     public async Task StartAsync_StoresNewPayment()
     {
         var repository = new PaymentsRepository();

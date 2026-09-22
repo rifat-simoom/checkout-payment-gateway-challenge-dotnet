@@ -351,6 +351,24 @@ public sealed class PaymentsServiceTests
             return Task.CompletedTask;
         }
 
+        public Task<Payment> CompleteAsync(Guid paymentId, bool authorized, CancellationToken cancellationToken)
+        {
+            var payment = _payments[paymentId];
+            if (payment.Status == PaymentStatus.Pending)
+            {
+                if (authorized)
+                {
+                    payment.Authorize();
+                }
+                else
+                {
+                    payment.Decline();
+                }
+            }
+
+            return Task.FromResult(payment);
+        }
+
         public Task<Payment?> GetAsync(Guid paymentId, CancellationToken cancellationToken)
         {
             _payments.TryGetValue(paymentId, out var payment);
